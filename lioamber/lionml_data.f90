@@ -50,6 +50,8 @@ module lionml_data
    use ghost_atoms_data  , only: n_ghosts, ghost_atoms
    use basis_data        , only: norm, int_basis, rmax, rmaxs, basis_set,      &
                                  fitting_set
+   use lr_data           , only: lresponse, nstates, root
+
    implicit none
 
 !  Namelist definition
@@ -92,7 +94,7 @@ module lionml_data
                   ! Variables for GPU options.
                   little_cube_size, max_function_exponent, free_global_memory, &
                   min_points_per_cube, assign_all_functions, sphere_radius,    &
-                  remove_zero_weights, energy_all_iterations,                  &
+                  remove_zero_weights, energy_all_iterations, gpu_level        &
                   ! Variables for Transport
                   transport_calc, generate_rho0, nbias,                        &
                   save_charge_freq, driving_rate, Pop_Drive,                   &
@@ -105,7 +107,9 @@ module lionml_data
                    ! Libxc variables
                   use_libxc, ex_functional_id, ec_functional_id,               &
                   ! Variables for Ghost atoms:
-                  n_ghosts, ghost_atoms, gpu_level
+                  n_ghosts, ghost_atoms,
+                  ! Variables for Linear Response
+                  lresponse, nstates, root
 
    type lio_input_data
       ! COMMON
