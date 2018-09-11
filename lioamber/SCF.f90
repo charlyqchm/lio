@@ -71,6 +71,7 @@ subroutine SCF(E)
    use fileio       , only: write_energies, write_energy_convergence, &
                             write_final_convergence
    use fileio_data  , only: verbose
+   use DOS_subs     , only: init_PDOS, build_PDOS, write_DOS
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
@@ -704,7 +705,7 @@ subroutine SCF(E)
 #       else
            morb_coefat = matmul( Xmat, morb_coefon )
 #       endif
-        call standard_coefs( morb_coefat )
+!        call standard_coefs( morb_coefat )
         call g2g_timer_sum_pause('SCF - MOC base change (sum)')
 
         if ( allocated(morb_coefon) ) deallocate(morb_coefon)
@@ -891,6 +892,15 @@ subroutine SCF(E)
          stop
       endif
 !------------------------------------------------------------------------------!
+!charly: DOS and PDOS calculation (this is not working yet with DFTB)
+
+   do ii=1, M
+      write(777,*) morb_energy(ii)
+   end do
+
+   call init_PDOS(M_in)
+   call build_PDOS(morb_coefat, Smat, M, M_in, Nuc)
+   call write_DOS(M_in, NCO, morb_energy)
 
 !DFTB: Mulliken analysis of TB part
 

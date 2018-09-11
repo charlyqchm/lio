@@ -119,7 +119,22 @@ $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dftb_data.mod
 tmplist :=
 tmplist += dftb_subs.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/properties.mod
+################################################################################
 
+OBJECTS += dos_subs.o
+OBJECTS += dos_data.o
+
+tmplist :=
+tmplist += SCF.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dos_subs.mod
+
+tmplist :=
+tmplist += dos_subs.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dos_data.mod
+
+tmplist :=
+tmplist += dos_subs.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dftb_data.mod
 ################################################################################
 OBJECTS += converger_data.o
 OBJECTS += converger_subs.o
