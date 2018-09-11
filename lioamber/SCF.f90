@@ -173,6 +173,14 @@ subroutine SCF(E)
    real*8              :: ocupF
    integer             :: NCOa, NCOb
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+!charly:linear search stuffs
+   real*8, allocatable  :: rho_aOLD(:,:), rho_bOLD(:,:)
+   real*8, allocatable  :: rho_ls_a(:,:), rho_ls_b(:,:)
+   real*8, allocatable  :: ls_energy(:)
+   real*8               :: ls_factor1, ls_factor2, ls_enerOLD, Pstepsize
+   integer              :: ls_step
+   logical              :: linear_search, ls_good, ls_goodE, ls_bigE
+
    call g2g_timer_start('SCF_full')
 
    if (verbose > 1) then
@@ -182,7 +190,10 @@ subroutine SCF(E)
 
 !------------------------------------------------------------------------------!
 !DFTB: initialisation of DFTB variables
-   allocate (fock_a0(M,M), rho_a0(M,M))
+!charly: also I allocate rho_aOLD, rho_bOLD
+   allocate (fock_a0(M,M), rho_a0(M,M),rho_aOLD(M,M), rho_bOLD(M,M),rho_ls_a(M,M), rho_ls_b(M,M), ls_energy(11))
+
+   linear_search=.true.
 
    if (dftb_calc) then
       call dftb_init(M, OPEN)
@@ -659,6 +670,14 @@ subroutine SCF(E)
    call rho_aop%Sets_data_AO(rho_a)
    call fock_aop%Sets_data_AO(fock_a)
 
+!charly: storing rho_old for linear_search
+       if (linear_search.and.niter==1) then
+         rho_aOLD=rho_a
+         if(OPEN) rho_bOLD=rho_b
+         Pstepsize=1.0d0
+       end if
+
+
    if (OPEN) then
       call rho_bop%Sets_data_AO(rho_b)
       call fock_bop%Sets_data_AO(fock_b)
@@ -840,6 +859,121 @@ subroutine SCF(E)
           end if
         end if
 
+!charly:linear search algorithm
+
+              E1=0.0D0
+              call int3lu(E2, RMM(1:MM), RMM(M3:M3+MM), RMM(M5:M5+MM), &
+                       RMM(M7:M7+MMd), RMM(M9:M9+MMd), RMM(M11:M11+MMd), M, Md, &
+                       cool, cools, kkind, kkinds, kknumd, kknums, af, B, memo, &
+                       open)
+
+              call g2g_solve_groups(0,Ex,0)
+
+              do kk=1,MM
+                 E1=E1+RMM(kk)*RMM(M11+kk-1)
+              enddo
+
+              if(E1+E2+En+Ex>Evieja) then
+                 ls_bigE=.true.
+              else
+                 ls_bigE=.false.
+              end if
+
+        ls_good=.true.
+        ls_goodE=.true.
+
+        if (linear_search) then
+
+        ls_energy=0.0d0
+
+        if(ls_bigE) then
+           do ls_step=0, 10
+              ls_factor1=Pstepsize*(ls_step)/10.0d0
+
+              if (OPEN) then
+                 rho_ls_a= (1.0d0-ls_factor1)*rho_aOLD + (ls_factor1)*rho_a
+                 rho_ls_b= (1.0d0-ls_factor1)*rho_bOLD + (ls_factor1)*rho_b
+                 call sprepack('L',M,rhoalpha,rho_ls_a)
+                 call sprepack('L',M,rhobeta,rho_ls_b)
+                 call sprepack('L',M,RMM,rho_ls_a+rho_ls_b)
+              else
+                 rho_ls_a= (1.0d0-ls_factor1)*rho_aOLD + (ls_factor1)*rho_a
+                 call sprepack('L',M,RMM,rho_ls_a)
+              endif
+
+              E1=0.0D0
+
+              call int3lu(E2, RMM(1:MM), RMM(M3:M3+MM), RMM(M5:M5+MM), &
+                       RMM(M7:M7+MMd), RMM(M9:M9+MMd), RMM(M11:M11+MMd), M, Md, &
+                       cool, cools, kkind, kkinds, kknumd, kknums, af, B, memo, &
+                       open)
+
+              call g2g_solve_groups(0,Ex,0)
+
+              do kk=1,MM
+                 E1=E1+RMM(kk)*RMM(M11+kk-1)
+              enddo
+
+              ls_energy(ls_step)=E1+E2+En+Ex
+
+           enddo
+
+           call line_search(11,ls_energy, 1.0d0, ls_factor2)
+           if (ls_factor2>1.0d0) ls_factor2=ls_factor2-1.0d0
+           ls_factor2=ls_factor2*Pstepsize/10.0d0
+
+        else
+           ls_factor2=Pstepsize
+        endif
+
+        if (OPEN) then
+           rho_ls_a= (1.0d0-ls_factor2)*rho_aOLD + (ls_factor2)*rho_a
+           rho_ls_b= (1.0d0-ls_factor2)*rho_bOLD + (ls_factor2)*rho_b
+           call sprepack('L',M,rhoalpha,rho_ls_a)
+           call sprepack('L',M,rhobeta,rho_ls_b)
+           call sprepack('L',M,RMM,rho_ls_a+rho_ls_b)
+        else
+           rho_ls_a= (1.0d0-ls_factor2)*rho_aOLD + (ls_factor2)*rho_a
+           call sprepack('L',M,RMM,rho_ls_a)
+        endif
+
+        E1=0.0D0
+
+        call int3lu(E2, RMM(1:MM), RMM(M3:M3+MM), RMM(M5:M5+MM), &
+                    RMM(M7:M7+MMd), RMM(M9:M9+MMd), RMM(M11:M11+MMd), M, Md, &
+                    cool, cools, kkind, kkinds, kknumd, kknums, af, B, memo, &
+                    open)
+
+         call g2g_solve_groups(0,Ex,0)
+
+         do kk=1,MM
+            E1=E1+RMM(kk)*RMM(M11+kk-1)
+         enddo
+
+         ls_enerOLD=E1+E2+En+Ex
+
+        xnano=rho_ls_a
+        if(OPEN) xnano=xnano+rho_ls_b
+
+        rho_a    = rho_aOLD
+        rho_aOLD = rho_ls_a
+
+        if(OPEN) then
+           rho_b    = rho_bOLD
+           rho_bOLD = rho_ls_b
+           call sprepack('L',M,rhoalpha,rho_a)
+           call sprepack('L',M,rhobeta,rho_b)
+           call sprepack('L',M,RMM,rho_a+rho_b)
+        else
+           call sprepack('L',M,RMM,rho_a)
+        endif
+
+        if (ls_factor2 .le. 1.d-1*Pstepsize) Pstepsize=Pstepsize*0.5d0
+        if (ls_factor2 .ge. 1.d-1*Pstepsize) Pstepsize=Pstepsize*1.2d0
+        if (Pstepsize .ge. 1.d0) Pstepsize=1.d0
+
+      endif !end linear research
+
 !------------------------------------------------------------------------------!
 ! TODO: convergence criteria should be a separated subroutine...
         good = 0.0d0
@@ -852,6 +986,10 @@ subroutine SCF(E)
         enddo
         enddo
         good=sqrt(good)/float(M)
+
+!charly: linear search
+        if (ls_factor2 .le. 1.d-1*Pstepsize .and. Pstepsize .gt. 1d-4) good =1.0d0
+
         deallocate ( xnano )
 
 !------------------------------------------------------------------------------!
@@ -861,6 +999,7 @@ subroutine SCF(E)
         ! Damping factor update
         DAMP=DAMP0
         E=E1+E2+En
+
         Egood=abs(E+Ex-Evieja)
         Evieja=E+Ex
 
