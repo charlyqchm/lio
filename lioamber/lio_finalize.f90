@@ -1,11 +1,12 @@
 subroutine lio_finalize()
 ! Deallocation and finalizations.
-   use garcha_mod , only: dipole, Smat, RealRho, sqsm, Eorbs, Eorbs_b, &
-                          MO_coef_at, MO_coef_at_b, r, v, rqm, Em, Rm, &
-                          pc, Iz, RMM, X, d
-   use ECP_mod    , only: ecpmode
-   use fileio     , only: io_finish_outputs
-   use basis_subs , only: basis_deinit
+   use garcha_mod  , only: dipole, Smat, RealRho, sqsm, Eorbs, Eorbs_b, &
+                           MO_coef_at, MO_coef_at_b, r, v, rqm, Em, Rm, &
+                           pc, Iz, RMM, X, d
+   use ECP_mod     , only: ecpmode
+   use fileio      , only: io_finish_outputs
+   use basis_subs  , only: basis_deinit
+   use converger_ls, only: P_linearsearch_fin
  
    implicit none
    call basis_deinit() ! Deallocates basis variables.
@@ -27,4 +28,6 @@ subroutine lio_finalize()
    call aint_deinit()
    call g2g_timer_summary()
    call g2g_deinit()
+   call P_linearsearch_fin()
+
 end subroutine
