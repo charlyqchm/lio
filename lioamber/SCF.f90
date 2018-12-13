@@ -70,6 +70,7 @@ subroutine SCF(E)
    use fileio       , only: write_energies, write_energy_convergence, &
                             write_final_convergence
    use fileio_data  , only: verbose
+   use ediis_subs   , only: EDIIS_init, ediis_conver
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
@@ -663,7 +664,9 @@ subroutine SCF(E)
 !  Convergence accelerator processing
         call g2g_timer_sum_start('SCF acceleration')
         if (niter==1) then
-           call converger_init( M_in, ndiis, DAMP, DIIS, hybrid_converg, OPEN )
+!charly: testing EDIIS
+           call EDIIS_init(M_in, OPEN)
+!           call converger_init( M_in, ndiis, DAMP, DIIS, hybrid_converg, OPEN )
         end if
 
 !carlos: this is repeted twice for open shell
@@ -672,8 +675,11 @@ subroutine SCF(E)
 !CLOSE SHELL OPTION |
 !%%%%%%%%%%%%%%%%%%%%
 #       ifdef CUBLAS
-           call conver(niter, good, good_cut, M_in, rho_aop, fock_aop,         &
-                       dev_Xmat, dev_Ymat, 1)
+!charly: testing EDIIS
+!           call conver(niter, good, good_cut, M_in, rho_aop, fock_aop,         &
+!                       dev_Xmat, dev_Ymat, 1)
+            call ediis_conver (niter, M_in, E1+E2+Ex+En, dev_Xmat, dev_Ymat, OPEN,&
+                               fock_aop, rho_aop)
 #       else
            call conver(niter, good, good_cut, M_in, rho_aop, fock_aop, Xmat,   &
                        Ymat, 1)

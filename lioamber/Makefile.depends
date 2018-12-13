@@ -126,6 +126,16 @@ $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/converger_subs.mod
 tmplist := converger_subs.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/converger_data.mod
 
+################################################################################
+OBJECTS += EDIIS_data.o
+OBJECTS += EDIIS_subs.o
+
+tmplist :=
+tmplist += SCF.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/EDIIS_subs.mod
+
+tmplist := EDIIS_subs.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/EDIIS_data.mod
 
 ################################################################################
 include ehrensubs/ehrensubs.mk
