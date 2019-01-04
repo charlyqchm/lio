@@ -10,15 +10,19 @@ module dftb_data
    integer      :: MDFTB = 0            ! Size of the DFT-TB matrix
    integer      :: start_tdtb=0         ! Initial time step for evolution of
                                         !                  diagonal TB terms
+!carlos: implementing DLVN with dftb
+   integer      :: dftb_transport=0
    integer      :: end_tdtb=0           ! Final time step for evolution of
                                         ! diagonal TB terms
    integer      :: end_bTB            ! Index matrix size
-   integer, allocatable :: Iend_TB(:,:) ! Index matrix
+   integer, allocatable :: IendA_TB(:,:), IendB_TB(:,:)! Index matrix
 
 
    real*8               :: alfaTB             ! Fermi Energy
    real*8               :: betaTB             ! Offdiagonal tight binding param
    real*8               :: gammaTB            ! DFT-TB terms
+!carlos: driving rate for DLVN DFTB
+   real*8               :: driving_rateTB = 0.00d0
    real*8               :: Vbias_TB           ! Bias potential
    real*8               :: chargeA_TB
    real*8               :: chargeB_TB
@@ -27,6 +31,7 @@ module dftb_data
    real*8, allocatable  :: rho_bDFTB(:,:)     ! Matrix to store rho DFTB for TD
 
    real*8,allocatable   :: chimerafock (:,:,:) ! Allocated in the central code
+   real*8,allocatable   :: gammaW(:,:)           ! gamma weight
 #ifdef TD_SIMPLE
    complex*8, allocatable  :: rhold_AOTB(:,:,:)     ! rho in AO to calculate charges
    complex*8, allocatable  :: rhonew_AOTB(:,:,:)     ! rho in AO to calculate charges
@@ -34,6 +39,12 @@ module dftb_data
    complex*16, allocatable  :: rhold_AOTB(:,:,:)     ! rho in AO to calculate charges
    complex*16, allocatable  :: rhonew_AOTB(:,:,:)     ! rho in AO to calculate charges
 #endif
+!carlos: reference rho for DLVN
+   complex*8, allocatable   :: rhofirst_TB(:,:,:)
+
+   integer, allocatable     :: coup_atoms_A(:), coup_atoms_B(:)
+   integer                  :: at_coupled
+   integer                  :: n_biasTB
 end module dftb_data
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

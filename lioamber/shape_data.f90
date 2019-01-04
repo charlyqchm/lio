@@ -61,7 +61,8 @@ contains
       argument  = 0.0D0
 
       argument  = (in_time - phase) / period
-      shape_mag = f_coord * sin(argument)
+!charly: aplicamos pulsos hardcodeados
+      shape_mag = f_coord * sin(argument)* exp(-((in_time-800d0)/200d0)**2)
 
       return
    end function calc_s

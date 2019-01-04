@@ -67,12 +67,12 @@ subroutine SCF(E)
    use fileio       , only: write_energies, write_energy_convergence, &
                             write_final_convergence
    use fileio_data  , only: verbose
-   use basis_data   , only: kkinds, kkind, cools, cool, Nuc, nshell, ncont, a, & 
+   use basis_data   , only: kkinds, kkind, cools, cool, Nuc, nshell, ncont, a, &
                             c, M, Md
    use lr_data, only: lresp
    use lrtddft, only: linear_response
    use converger_ls , only: Rho_LS, changed_to_LS, P_conver, P_linearsearch_init
-
+   use DOS_subs     , only: init_PDOS, build_PDOS, write_DOS
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
    implicit none
@@ -174,6 +174,10 @@ subroutine SCF(E)
    real*8              :: ocupF
    integer             :: NCOa, NCOb
 
+!charly: fock auxiliar para hacer DOS de solo la parte DFT
+    real*8             :: fock_dos(M,M)
+    real*8             :: eigen_vec(M,M)
+    real*8             :: eigen_val(M)
 ! LINSEARCH
    integer :: nniter
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
@@ -546,7 +550,7 @@ subroutine SCF(E)
 
         niter=niter+1
         nniter=niter
-        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1 
+        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1
 !       (first steep of damping after NMAX steeps without convergence)
 
         E1=0.0D0
@@ -640,12 +644,12 @@ subroutine SCF(E)
          NCOa_in = NCOa + MTB
          if (niter==1) call find_TB_neighbors(M,Nuc,natom)
          call build_chimera_DFTB (M, fock_a0, fock_a, natom, nshell, ncont)
-         call construct_rhoDFTB(M, rho_a, rho_a0 ,rho_aDFTB, TBload, niter)
+         call construct_rhoDFTB(M, rho_a, rho_a0 ,rho_aDFTB, TBload, niter,OPEN)
 
          if (OPEN) then
             NCOb_in = NCOb + MTB
             call build_chimera_DFTB (M, fock_b0, fock_b, natom, nshell, ncont)
-            call construct_rhoDFTB(M, rho_b, rho_b0 ,rho_bDFTB, TBload, niter)
+            call construct_rhoDFTB(M, rho_b, rho_b0 ,rho_bDFTB, TBload, niter,OPEN)
          end if
 
       else
@@ -888,6 +892,30 @@ subroutine SCF(E)
 
  999  continue
       call g2g_timer_sum_start('Finalize SCF')
+!charly: printing autovalues
+      ! do ii=1, M_in
+      !    write(777,*) Eorbs(ii)
+      ! end do
+
+!carlos:DOS-PDOS analysis
+
+  ! call init_PDOS(M_in)
+  ! call build_PDOS(morb_coefat, Smat, M, M_in, Nuc)
+  ! call write_DOS(M_in, NCO, morb_energy)
+!charly:partial DOS
+    ! call fock_aop%Gets_data_ON(fock_a)
+    ! fock_dos=fock_a(MTB+1:MTB+M,MTB+1:MTB+M)
+    ! call fock_aop%Sets_data_ON(fock_dos)
+    ! call fock_aop%Diagon_datamat( eigen_vec, eigen_val )
+!
+! !charly: printing autovalues
+    !   do ii=1, M
+    !      write(777,*) eigen_val(ii)
+    !   end do
+    !
+    ! call init_PDOS(M)
+    ! call build_PDOS(eigen_vec, Smat, M, M, Nuc)
+    ! call write_DOS(M, NCO, eigen_val)
 
 !------------------------------------------------------------------------------!
 !     Checks of convergence

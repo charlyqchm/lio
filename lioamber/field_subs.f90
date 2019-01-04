@@ -314,6 +314,8 @@ contains
 
       call dip(dipxyz)
       call field_calc_all(Fx, Fy, Fz, time)
+!charly:checkeando campo
+      write(888,*) Fx
       if ((abs(Fx).lt.tol) .and. (abs(Fy).lt.tol) .and. (abs(Fz).lt.tol)) return
       call intfld(Fmat, Fmat_B, r, d, Iz, natom, ntatom, opshell, g, Fx, Fy, Fz)
       energ = - g * (Fx*dipxyz(1) + Fy*dipxyz(2) + Fz*dipxyz(3)) / factor -   &

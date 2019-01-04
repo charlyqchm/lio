@@ -22,7 +22,7 @@ module lionml_data
                                  gpu_level, NMAX, hybrid_converg
    use dftb_data         , only: dftb_calc, MTB, alfaTB, betaTB, gammaTB,      &
                                  Vbias_TB, end_bTB, start_tdtb, end_tdtb,      &
-                                 TBsave, TBload
+                                 TBsave, TBload, dftb_transport, driving_rateTB
    use ECP_mod           , only: ecpmode, ecptypes, tipeECP, ZlistECP,         &
                                  verbose_ECP, cutECP, local_nonlocal,          &
                                  ecp_debug, FOCK_ECP_read, FOCK_ECP_write,     &
@@ -100,7 +100,8 @@ module lionml_data
                   save_charge_freq, driving_rate, Pop_Drive,                   &
                   ! Variables for DFTB
                   dftb_calc, MTB, alfaTB, betaTB, gammaTB, Vbias_TB, end_bTB,  &
-                  start_tdtb, end_tdtb, TBsave, TBload,                        &
+                  start_tdtb, end_tdtb, TBsave, TBload,  dftb_transport,       &
+                  driving_rateTB,                                              &
                   !Fockbias
                   fockbias_is_active, fockbias_is_shaped, fockbias_readfile,   &
                   fockbias_timegrow , fockbias_timefall , fockbias_timeamp0,   &
@@ -152,11 +153,12 @@ module lionml_data
       logical          :: assign_all_functions, energy_all_iterations,         &
                           remove_zero_weights
       ! Transport and DFTB
-      double precision :: alfaTB, betaTB, driving_rate, gammaTB, Vbias_TB
+      double precision :: alfaTB, betaTB, driving_rate, gammaTB, Vbias_TB,     &
+                          driving_rateTB
       logical          :: dftb_calc, gate_field, generate_rho0, TBload, TBsave,&
                           transport_calc
       integer          :: end_bTB, end_tdtb, MTB, pop_drive, save_charge_freq, &
-                          start_tdtb, nbias
+                          start_tdtb, nbias, dftb_transport
       ! Ehrenfest
       character*80     :: rsti_fname, rsto_fname, wdip_fname
       double precision :: eefld_ampx, eefld_ampy, eefld_ampz, eefld_timeamp,   &
@@ -254,7 +256,9 @@ subroutine get_namelist(lio_in)
    lio_in%end_tdtb         = end_tdtb        ; lio_in%pop_drive = pop_drive
    lio_in%save_charge_freq = save_charge_freq; lio_in%MTB       = MTB
    lio_in%start_tdtb       = start_tdtb      ; lio_in%TBload    = TBload
-   lio_in%TBsave           = TBsave
+   lio_in%TBsave           = TBsave          ;
+   lio_in%dftb_transport   = dftb_transport
+   lio_in%driving_rateTB   = driving_rateTB
    ! Ghost atoms
    lio_in%n_ghosts = n_ghosts ; lio_in%ghost_atoms = ghost_atoms
 

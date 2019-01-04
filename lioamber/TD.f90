@@ -463,12 +463,15 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       endif
 
       ! Compute the trace of the density matrix for population analysis.
-      if (transport_calc) call transport_rho_trace(M, dim3, rho)
+!charly: testing trace
+      !if (transport_calc)
+      call transport_rho_trace(M_in, dim3, rho)
 
       ! Dipole Moment calculation.
       call td_dipole(t, tdstep, Fx, Fy, Fz, istep, propagator, is_lpfrg, 134)
-      call td_population(M, natom, rho_aux, Smat_initial, sqsm, Nuc, Iz, OPEN, &
-                         istep, propagator, is_lpfrg)
+      call td_population(M, natom, rho_aux(MTB+1:MTB+M,MTB+1:MTB+M,:),          &
+                         Smat_initial, sqsm, Nuc, Iz, OPEN, istep, propagator,  &
+                         is_lpfrg)
 
       ! Population analysis.
       if (transport_calc) call transport_population(M, dim3, natom, Nuc, Iz,   &
@@ -1148,8 +1151,8 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
    use cublasmath    ,   only: basechange_cublas
    use propagators   ,   only: cupredictor, cumagnusfac
    use transport_subs,   only: transport_propagate_cu
-   use dftb_data,        only: dftb_calc,MTB, rhold_AOTB, rhonew_AOTB
-   use dftb_subs,        only: chimeraDFTB_evol
+   use dftb_data,        only: dftb_calc,dftb_transport,MTB, rhold_AOTB, rhonew_AOTB
+   use dftb_subs,        only: chimeraDFTB_evol, transport_TB
    use typedef_operator, only: operator
    implicit none
 
@@ -1194,6 +1197,7 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
 
 ! DFTB: this if is temporary, it is to conserve the atomic part of dftb in
 ! predictor.
+!carlos: for the moment this is not modifying the hamiltonian
    if (dftb_calc) then
       call chimeraDFTB_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,1), fock_aux(:,:,1),&
                             natom, nshell,ncont, istep)
@@ -1207,6 +1211,12 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
       end if
 
       fock=fock_aux
+   end if
+!carlos: calculating the drving term
+   if(dftb_calc.and.dftb_transport==2) then
+      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
+      if(OPEN) call rho_bop%Gets_dataC_AO(rho_aux(:,:,2))
+      call transport_TB(M, natom, dim3, overlap, rho_aux ,devPtrY,Nuc,istep, OPEN)
    end if
 
    call g2g_timer_start('cupredictor')
@@ -1227,6 +1237,12 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
    endif
 
 !DFTB: rhonew in AO is store for charge calculations of DFTB
+   if (dftb_calc.and.dftb_transport==2) then
+      write(*,*) 'Transport TB: Adding driving term to the density.'
+      rhonew = rhonew - rho_aux
+   endif
+
+
    if (dftb_calc) then
       rhonew_AOTB(:,:,1)=basechange_cublas(M_in,rhonew(:,:,1),devPtrXc,'inv')
       if (OPEN) rhonew_AOTB(:,:,2)=basechange_cublas(M_in,rhonew(:,:,2),       &

@@ -168,6 +168,7 @@ subroutine lionml_write_dull()
    write(*,8143) inputs%gammaTB, inputs%Vbias_TB, inputs%start_tdtb
    write(*,8144) inputs%end_tdtb, inputs%end_bTB, inputs%TBload, inputs%TBsave
    write(*,8145) inputs%nbias
+   write(*,8146) inputs%dftb_transport, inputs%driving_rateTB
    write(*,9000) " ! -- Ehrenfest: -- !"
    write(*,8160) inputs%ndyn_steps, inputs%edyn_steps, inputs%nullify_forces
    write(*,8161) inputs%wdip_nfreq, inputs%wdip_fname, inputs%rsti_loads
@@ -255,6 +256,7 @@ subroutine lionml_write_dull()
 8144 FORMAT(2x, "end_TDTB = ", I5, ", end_BTB = ", I5, ", TBLoad = ", L2, &
             ", TBSave = ", L2)
 8145 FORMAT(2x, "nbias=",I5)
+8146 FORMAT(2x, "dftb_transport=",I5,",driving_rateTB=",F14.8)
 ! Ehrenfest
 8160 FORMAT(2x, "ndyn_steps = ", I6, ", edyn_steps = ", I6, &
             ", nullify_forces = ", L2, ",")
@@ -384,7 +386,8 @@ subroutine lionml_write_style()
    write(*,8460) inputs%gammaTB       ; write(*,8461) inputs%Vbias_TB
    write(*,8462) inputs%start_tdtb    ; write(*,8463) inputs%end_tdtb
    write(*,8464) inputs%end_bTB       ; write(*,8465) inputs%TBload
-   write(*,8466) inputs%TBsave
+   write(*,8466) inputs%TBsave        ; write(*,8466) inputs%dftb_transport
+   write(*,8461) inputs%driving_rateTB
    write(*,8003)
 
    ! Ehrenfest
@@ -556,6 +559,8 @@ subroutine lionml_write_style()
 8464 FORMAT(4x,"║  end_bTB             ║  ",18x,I5,2x,"║")
 8465 FORMAT(4x,"║  TBload              ║  ",21x,L2,2x,"║")
 8466 FORMAT(4x,"║  TBsave              ║  ",21x,L2,2x,"║")
+8467 FORMAT(4x,"║  dftb_transport      ║  ",18x,I5,2x,"║")
+8468 FORMAT(4x,"║  driving_rateTB      ║  ",9x,F14.8,2x,"║")
 ! Ehrenfest
 8500 FORMAT(4x,"║  ndyn_steps          ║  ",17x,I6,2x,"║")
 8501 FORMAT(4x,"║  edyn_steps          ║  ",17x,I6,2x,"║")
