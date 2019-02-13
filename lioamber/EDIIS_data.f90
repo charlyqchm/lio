@@ -2,7 +2,7 @@ module ediis_data
 
    implicit none
 
-   integer             :: nediis = 10
+   integer             :: nediis = 70
    integer             :: step_nediis=0
    real*8              :: damp_ediis = 0.8d0
    real*8, allocatable :: fock_ediis_mat(:,:,:,:)

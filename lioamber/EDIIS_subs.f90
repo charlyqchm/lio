@@ -74,9 +74,6 @@ subroutine ediis_conver (niter, M_in, energy ,Xmat, Ymat, OPEN, fock_aop,      &
    real*8,  intent(in) :: Ymat(M_in,M_in)
 #endif
 
-   integer                 :: info, LWORK
-   real*8, dimension(1000) :: WORK
-
    step_nediis=niter
 
    position = min(step_nediis, nediis)
@@ -156,7 +153,7 @@ subroutine ediis_conver (niter, M_in, energy ,Xmat, Ymat, OPEN, fock_aop,      &
    if (step_nediis==1) then
       fock_new  = mat_aux1
       fock_damp = fock_new
-   else if (step_nediis==2) then!.and.step_nediis<=200) then
+   else if (step_nediis==2) then !>=2.and.step_nediis<=150) then
       fock_new = (mat_aux1 + 80.0d0*fock_damp)/(1.0d0+80.0d0)
       fock_damp=fock_new
    end if
@@ -227,6 +224,8 @@ subroutine ediis_conver (niter, M_in, energy ,Xmat, Ymat, OPEN, fock_aop,      &
 !-------------------------------------------------------------------------------
 
    if (step_nediis>2) then
+
+!charly
       do ii=1, position
          write(222, '(30E14.6)') BMAT_aux(ii,:,1)
       end do
@@ -322,8 +321,12 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
       zind(ii-1) = ii
    end do
 
-   do while (converged)!.and.conv_steps<=10000)
+   do while (converged.and.conv_steps<=100000)
       conv_steps=conv_steps+1
+!charly
+      if (conv_steps>100000) then
+         write(222,*) "Too many steps"
+      end if
 
       big_alpha1   = .false.
       big_alpha2   = .false.
@@ -334,7 +337,7 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
       call displacement (grad, zind, yind, delta, coef, ndim)
 
       do ii=1, ndim-1
-         if (abs(delta(zind(ii)))>1.0D-4) then
+         if (abs(delta(zind(ii)))>1.0D-8) then
             converged=.true.
             exit
          end if
@@ -363,9 +366,9 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
 
       call min_alpha(Ener,BMAT, coef,delta, alpha3, ndim)
 !charly:
-      ! write(666,*) big_alpha1, big_alpha2
-      ! write(666,'(3E14.6)') alpha1, alpha2, alpha3
-      ! write(666,'(10E14.6)') grad
+       ! write(666,*) big_alpha1, big_alpha2
+       ! write(666,'(3E14.6)') alpha1, alpha2, alpha3
+       ! write(666,'(10E14.6)') coef
       ! write(666,'(10E14.6)') delta
 
 
@@ -373,10 +376,10 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
 
          call f_coef(Ener,BMAT, coef+alpha3*delta, result1, ndim)
          call f_coef(Ener,BMAT, coef, result2, ndim)
-         if (result2<result1) then
-            print*, "convergence problem1"
-            stop
-         end if
+         ! if (result2<result1) then
+         !    print*, "convergence problem1"
+         !    stop
+         ! end if
 
       else if (big_alpha1) then
 
@@ -385,10 +388,10 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
          call f_coef(Ener,BMAT, coef+alpha3*delta, result2, ndim)
          call f_coef(Ener,BMAT, coef, result3, ndim)
          if (result1<result2) alpha3=alpha2
-         if (result3<result1.and.result3<result2) then
-            print*, "convergence problem2"
-            stop
-         end if
+         ! if (result3<result1.and.result3<result2) then
+         !    print*, "convergence problem2"
+         !    stop
+         ! end if
 
       else if (big_alpha2) then
 
@@ -403,10 +406,10 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
             alpha3=alpha1
             update=.true.
          end if
-         if (result3<result1.and.result3<result2) then
-            print*, "convergence problem3"
-            stop
-         end if
+         ! if (result3<result1.and.result3<result2) then
+         !    print*, "convergence problem3"
+         !    stop
+         ! end if
 
       else
 
@@ -420,10 +423,10 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
          call f_coef(Ener,BMAT, coef+alpha3*delta, result2, ndim)
          call f_coef(Ener,BMAT, coef, result3, ndim)
          if (result1<result2) alpha3=alpha_aux
-         if (result3<result1.and.result3<result2) then
-            print*, "convergence problem4"
-            stop
-         end if
+         ! if (result3<result1.and.result3<result2) then
+         !    print*, "convergence problem4"
+         !    stop
+         ! end if
          if(alpha3>=alpha1) update=.true.
       end if
 
@@ -438,13 +441,26 @@ subroutine solve_linear_constraints(coef, Ener, BMAT, ndim)
          zind(newindex-1) = lastindex
       end if
 
+!chaly: checking the restriction
+       result1=0.0d0
+       do ii=1, ndim
+          result1=coef(ii)+result1
+       end do
+
+       ! write(666,*) "result", result1
+
+       if (abs(result1-1.0d0)>1.0d-8) then
+          print*,"The restricion is not comply"
+          stop
+       end if
+
 !charly
 !       write(666,'(5F10.6)') coef
 !      write(555,'(A4,5E14.4)') "grad", grad
 !      write(444,'(A5,5F10.6)') "delta", delta
    end do
 !charly
-      ! write(666,*) "------------------"
+       ! write(666,*) "------------------"
 !      write(555,*) "------------------"
 !      write(444,*) "------------------"
    return

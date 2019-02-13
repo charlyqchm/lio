@@ -678,7 +678,7 @@ subroutine SCF(E)
 !charly: testing EDIIS
 !           call conver(niter, good, good_cut, M_in, rho_aop, fock_aop,         &
 !                       dev_Xmat, dev_Ymat, 1)
-            call ediis_conver (niter, M_in, E1+E2+Ex+En, dev_Xmat, dev_Ymat, OPEN,&
+            call ediis_conver (niter, M_in, E1+E2+Ex, dev_Xmat, dev_Ymat, OPEN,&
                                fock_aop, rho_aop)
 #       else
            call conver(niter, good, good_cut, M_in, rho_aop, fock_aop, Xmat,   &
