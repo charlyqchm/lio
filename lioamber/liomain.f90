@@ -17,7 +17,7 @@ subroutine liomain(E, dipxyz)
                           restart_freq, npas, sqsm, mulliken, lowdin, dipole, &
                           doing_ehrenfest, first_step, Eorbs, Eorbs_b, fukui, &
                           print_coeffs, steep, NUNP, MO_coef_at, MO_coef_at_b,&
-                          spinpop, calc_propM
+                          calc_propM
     use basis_data    , only: M
     use ecp_mod       , only: ecpmode, IzECP
     use ehrensubs     , only: ehrendyn_main
@@ -151,9 +151,9 @@ end subroutine do_dipole
 ! Performs the different population analyisis available.                       !
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine do_population_analysis()
-   use garcha_mod, only: RMM, Smat, RealRho, M, Enucl, Nuc, Iz, natom, &
-                         mulliken, lowdin, sqsm, d, r, Md, ntatom,     &
-                         OPEN, rhoalpha, rhobeta, Iz
+   use garcha_mod, only: RMM, Smat, RealRho, Enucl, Iz, natom, &
+                         mulliken, lowdin, sqsm, d, r, ntatom, &
+                         OPEN, rhoalpha, rhobeta
    use basis_data, only: M, Md, Nuc
    use ECP_mod   , only: ecpmode, IzECP
    use faint_cpu , only: int1
@@ -194,9 +194,9 @@ subroutine do_population_analysis()
        if (OPEN) then
            allocate (RealRho_alpha(M,M), RealRho_betha(M,M))
            call spunpack('L',M,rhoalpha(1),RealRho_alpha) !pasa vector a matriz
-           call fixrho(M,RealRho_alpha)
+           call fix_densmat(RealRho_alpha)
            call spunpack('L',M,rhobeta(1),RealRho_betha) !pasa vector a matriz
-           call fixrho(M,RealRho_betha)
+           call fix_densmat(RealRho_betha)
            q=0
            call spin_pop_calc(natom, M, RealRho_alpha, RealRho_betha, Smat, Nuc, q)
            call write_population(natom, IzUsed, q, 2, 86)

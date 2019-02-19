@@ -1406,7 +1406,7 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    real*8   , intent(in)      :: Xmat(M_in, M_in), Ymat(M_in,M_in)
    real*8   , intent(inout)   :: F1a(M_in,M_in, dim3), F1b(M_in,M_in, dim3),   &
                                  overlap(:,:), sqsm(M,M)
-   integer, intent(in)        :: nshell (0:4)
+   integer, intent(in)        :: nshell(0:4)
    integer, intent(in)        :: ncont(M)
 #ifdef TD_SIMPLE
    complex*8 , intent(inout)  :: rhonew(M_in,M_in,dim3)
