@@ -1,0 +1,11 @@
+DO_exchange = 1
+ifeq ($(DO_exchange),1)
+    LIBS_LIBINT = -L/$(LIBINT_HOME)/lib -lint2
+    INCS_LIBINT = -I/$(LIBINT_HOME)/include -I/$(LIBINT_HOME)/include/libint2 -I/$(EIGEN_HOME)
+    LIBRARIES  += $(LIBS_LIBINT)
+    eri_src=lrtddft/eri.cpp
+    SRCS         += lrtddft/eri.cpp exchange_exact/exchange_ex.cpp
+    OBJ          += lrtddft/eri.o exchange_exact/exchange_ex.o
+lrtddft/eri.o: $(eri_src)
+	$(CXX) -std=c++11 $(CXXFLAGS) $(INCS_LIBINT) -c $< -o $@
+endif

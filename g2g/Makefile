@@ -82,7 +82,7 @@ LIBRARIES := $(CUDA_LDFLAGS) $(CUDA_LIBS) $(LIBXC_LIBRARIES) -lrt
 ifeq ($(intel),0)
   LIBRARIES += -L$(PACK_LIB_DIR) -lcblas
   CXXFLAGS += -DINTEL_COMP=0
-else 
+else
   CXXFLAGS += -DINTEL_COMP=1
 endif
 
@@ -92,6 +92,8 @@ LIBRARY=libg2g.so
 all: $(LIBRARY)
 
 include Makefile.depends
+##carlos: compilando exchanfe_ex
+include Makefile.exchange
 include Makefile.lrtddft
 
 depend:
@@ -107,4 +109,4 @@ clean:
 	@echo "Removing objects"; rm -f *.o* libg2g.so *.a cpu/*.o* cuda/*.o* pointxc/*.o*
 	@rm -f cuda/*.cu_o cuda/*.cudafe* cuda/*.ptx cuda/*.hash cuda/*.cubin cuda/*.i cuda/*.ii cuda/*.fatbin.* cuda/*.cu.c
 	@rm -f analytic_integral/*.o* analytic_integral/cuda/*.o*
-	@rm -f lrtddft/*.o*
+	@rm -f lrtddft/*.o* exchange_exact/*.o

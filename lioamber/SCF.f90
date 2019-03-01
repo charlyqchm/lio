@@ -60,6 +60,8 @@ subroutine SCF(E)
    use mask_cublas   , only: cublas_setmat, cublas_release
    use typedef_operator, only: operator !Testing operator
    use trans_Data    , only: gaussian_convert, rho_exc, translation
+!carlos: testing exchange exact
+   use exchange_subs , only: exchange_exact
 #  ifdef  CUBLAS
       use cublasmath , only: cumxp_r
 #  endif
@@ -67,7 +69,7 @@ subroutine SCF(E)
    use fileio       , only: write_energies, write_energy_convergence, &
                             write_final_convergence
    use fileio_data  , only: verbose
-   use basis_data   , only: kkinds, kkind, cools, cool, Nuc, nshell, ncont, a, & 
+   use basis_data   , only: kkinds, kkind, cools, cool, Nuc, nshell, ncont, a, &
                             c, M, Md
    use lr_data, only: lresp
    use lrtddft, only: linear_response
@@ -177,6 +179,11 @@ subroutine SCF(E)
 ! LINSEARCH
    integer :: nniter
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+!carlos: K matrix for exact exchange
+   real*8, allocatable :: Kmat(:,:)
+
+   allocate(Kmat(M,M))
+   Kmat=0.0d0
    call g2g_timer_start('SCF_full')
 
    changed_to_LS=.false. ! LINSEARCH
@@ -546,7 +553,7 @@ subroutine SCF(E)
 
         niter=niter+1
         nniter=niter
-        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1 
+        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1
 !       (first steep of damping after NMAX steeps without convergence)
 
         E1=0.0D0
@@ -628,7 +635,15 @@ subroutine SCF(E)
            call spunpack('L', M, RMM(M5), fock_a0)
            call fockbias_apply( 0.0d0, fock_a0 )
         end if
+!carlos: this is here just for testing. It will be located appropriatly later.
+        call exchange_exact(rho_a0, Kmat)
 
+        do ii=1, M
+        do jj=1, M
+           write(222,*) ii,jj,Kmat(ii,jj)
+        end do
+        end do
+        STOP
 !------------------------------------------------------------------------------!
 ! DFTB: Fock and Rho for DFTB are builded.
 !
