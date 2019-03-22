@@ -199,7 +199,8 @@ void PointGroupCPU<scalar_type>::solve_closed(
       const scalar_type wp = this->points[point].weight;
 
       if (compute_energy) {
-        localenergy += (pd * wp) * (exc + corr);
+//charly: this is being weighted for PBE0
+        localenergy += (pd * wp) * (0.75f*exc + corr);
       }
 
       /** RMM **/

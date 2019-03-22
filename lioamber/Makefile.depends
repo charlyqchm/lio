@@ -309,6 +309,10 @@ $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/lrtddft.mod
 ################################################################################
 OBJECTS += exchange_exact.o
 
+tmplist :=
+tmplist += SCF.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/exchange_exact.o
+
 ################################################################################
 # TO-DO: reformulate the following modules so that there exists mathcpu,
 #        mathcublas. Perhaps also a mathlio, which could be an interface

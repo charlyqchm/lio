@@ -145,7 +145,8 @@ __host__ __device__ void calc_ggaCS(scalar_type dens,
 
     ex = expbe;
     ec = ecpbe;
-    y2a = vxpbe + vcpbe;
+//charly: this is being weighted for PBE0
+    y2a = 0.75f*vxpbe + vcpbe;
     return;
   }
 

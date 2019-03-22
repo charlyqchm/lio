@@ -61,7 +61,7 @@ subroutine SCF(E)
    use typedef_operator, only: operator !Testing operator
    use trans_Data    , only: gaussian_convert, rho_exc, translation
 !carlos: testing exchange exact
-   use exchange_subs , only: exchange_exact
+   use exchange_subs , only: exchange_init, exchange_mat
 #  ifdef  CUBLAS
       use cublasmath , only: cumxp_r
 #  endif
@@ -148,7 +148,8 @@ subroutine SCF(E)
    real*8 :: Etrash      ! auxiliar variable
    real*8 :: Egood       !
    real*8 :: Evieja      !
-
+!charly: Adding Exchange Exact Energy
+   real*8 :: Ex_exact
 
 ! CUBLAS
 !------------------------------------------------------------------------------!
@@ -179,11 +180,6 @@ subroutine SCF(E)
 ! LINSEARCH
    integer :: nniter
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
-!carlos: K matrix for exact exchange
-   real*8, allocatable :: Kmat(:,:)
-
-   allocate(Kmat(M,M))
-   Kmat=0.0d0
    call g2g_timer_start('SCF_full')
 
    changed_to_LS=.false. ! LINSEARCH
@@ -229,6 +225,7 @@ subroutine SCF(E)
    Eecp=0.d0
    Ens=0.0D0
    E_restrain=0.d0
+   Ex_exact  =0.0d0
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 !%%%%%%%%%%%%%%%    Distance Restrain     %%%%%%%%%%%%%%%%%%%%%%%%%%%!
@@ -492,6 +489,8 @@ subroutine SCF(E)
       call int2(RMM(M7:M7+MMd), RMM(M9:M9+MMd), r, d, ntatom)
       call g2g_timer_sum_stop('Coulomb G matrix')
 
+!carlos: Calculating the 4 center integralis
+      call exchange_init()
 ! Precalculate three-index (two in MO basis, one in density basis) matrix
 ! used in density fitting / Coulomb F element calculation here
 ! (t_i in Dunlap)
@@ -636,14 +635,7 @@ subroutine SCF(E)
            call fockbias_apply( 0.0d0, fock_a0 )
         end if
 !carlos: this is here just for testing. It will be located appropriatly later.
-        call exchange_exact(rho_a0, Kmat)
-
-        do ii=1, M
-        do jj=1, M
-           write(222,*) ii,jj,Kmat(ii,jj)
-        end do
-        end do
-        STOP
+        call exchange_mat(rho_a0, fock_a0, 0.25d0)
 !------------------------------------------------------------------------------!
 ! DFTB: Fock and Rho for DFTB are builded.
 !
@@ -903,7 +895,9 @@ subroutine SCF(E)
 
  999  continue
       call g2g_timer_sum_start('Finalize SCF')
-
+!charly: checking Exchange exact energy
+      call spunpack_rho('L',M,RMM(M1),rho_a0)
+      call exchange_mat(rho_a0, fock_a0, 0.25d0, Ex_exact)
 !------------------------------------------------------------------------------!
 !     Checks of convergence
 !
