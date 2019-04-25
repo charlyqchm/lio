@@ -1041,7 +1041,7 @@ subroutine td_bc_fock_cu(M_in,M, MM, RMM5, fock_op, devPtrX, natom, nshell,    &
    call spunpack('L', M, RMM5, fock_0)
 
    if (dftb_calc) then
-      call chimeraDFTB_evol(M,fock_0, fock, natom, nshell,ncont, istep)
+      call chimeraDFTB_evol(M,fock_0, fock, natom, istep)
    else
       fock=fock_0
    end if
@@ -1195,13 +1195,13 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
 ! predictor.
    if (dftb_calc) then
       call chimeraDFTB_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,1), fock_aux(:,:,1),&
-                            natom, nshell,ncont, istep)
+                            natom, istep)
       !DFTB: rhold in AO is store for charge calculations of DFTB
       rhold_AOTB(:,:,1)=basechange_cublas(M_in,rho(:,:,1),devPtrXc,'inv')
 
       if(OPEN) then
         call chimeraDFTB_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,2),               &
-                              fock_aux(:,:,2), natom, nshell,ncont, istep)
+                              fock_aux(:,:,2), natom, istep)
         rhold_AOTB(:,:,2)=basechange_cublas(M_in,rho(:,:,2),devPtrXc,'inv')
       end if
 

@@ -50,7 +50,7 @@ subroutine SCF(E)
                          rho_aDFTB, rho_bDFTB, TBsave, TBload
    use dftb_subs, only : dftb_init, getXY_DFTB, find_TB_neighbors,             &
                          build_chimera_DFTB, extract_rhoDFT, read_rhoDFTB,     &
-                         write_rhoDFTB, construct_rhoDFTB
+                         write_rhoDFTB, construct_rhoDFTB, dftb_ehren_init
    use cubegen       , only: cubegen_vecin, cubegen_matin, cubegen_write
    use mask_ecp      , only: ECP_init, ECP_fock, ECP_energy
    use typedef_sop   , only: sop              ! Testing SOP
@@ -547,7 +547,7 @@ subroutine SCF(E)
 
         niter=niter+1
         nniter=niter
-        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1 
+        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1
 !       (first steep of damping after NMAX steeps without convergence)
 
         E1=0.0D0
@@ -1056,10 +1056,14 @@ subroutine SCF(E)
 !       a module so that ehrendyn can retrieve it afterwards.
 !       Remove all of this.
 !
+!carlos: now rho will be get from rho_aop, and the we will consider implicitly
+!        the TB case
       if (doing_ehrenfest) then
-         call spunpack('L',M,RMM(M1),RealRho)
-         call fixrho(M,RealRho)
-         call ehrendyn_init(natom, M, RealRho)
+         ! call spunpack('L',M,RMM(M1),RealRho)
+         ! call fixrho(M,RealRho)
+         call rho_aop%Gets_data_AO(rho_a)
+         call ehrendyn_init(natom, M_in, rho_a)
+         call dftb_ehren_init()
       endif
 
 

@@ -56,7 +56,7 @@ subroutine RMMcalc3_FockMao( DensMao, ElecField, FockMao, DipMom, Energy )
 !------------------------------------------------------------------------------!
    call g2g_timer_start('RMMcalc3-field')
    call dip( DipMom(1), DipMom(2), DipMom(3) )
-   write(666,*) eefld_on
+!   write(666,*) eefld_on
    if (eefld_on) then
       g = 1.0d0
       factor = 2.54d0
@@ -78,10 +78,10 @@ subroutine RMMcalc3_FockMao( DensMao, ElecField, FockMao, DipMom, Energy )
       Energy_Efield = Energy_Efield - g * dip_times_field / factor
       Energy_Efield = Energy_Efield - strange_term
 
-      write(666,*)
-      write(666,*) DipMom(1), DipMom(2), DipMom(3)
-      write(666,*) ElecField(1), ElecField(2), ElecField(3)
-      write(666,*) Energy_Efield
+!      write(666,*)
+!      write(666,*) DipMom(1), DipMom(2), DipMom(3)
+!      write(666,*) ElecField(1), ElecField(2), ElecField(3)
+!      write(666,*) Energy_Efield
 
    end if
    call g2g_timer_stop('RMMcalc3-field')

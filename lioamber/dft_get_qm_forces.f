@@ -136,7 +136,9 @@ c       factor=627.509391D0/0.5291772108D0
        if (nsol.le.0) then
          call g2g_timer_sum_stop('Forces')
        endif
-
+!charly: anulando fuerzas temporalmente
+      dxyzqm(:,1) = 0.0d0
+      dxyzqm(:,10)= 0.0d0
 ! FFR: No other place for this to go right now.
        if ( first_step ) first_step = .false.
 !--------------------------------------------------------------------!

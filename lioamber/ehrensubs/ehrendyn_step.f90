@@ -1,6 +1,8 @@
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+!carlos: I added nb_ext as a new variale for the extra basis, if TB is off
+!        nb_ext=nbasis
 subroutine ehrendyn_step( step_back, propagator_id, time_value, time_step,     &
-                        & nbasis, natoms, nucpos, nucvel, nucfor_ds,           &
+                        & nbasis, nb_ext, natoms, nucpos, nucvel, nucfor_ds,   &
                         & Sinv, Uinv, Linv, dens_oldi, dens_midi, dens_newo,   &
                         & fock_mid, dipmom, energy )
 !------------------------------------------------------------------------------!
@@ -14,6 +16,7 @@ subroutine ehrendyn_step( step_back, propagator_id, time_value, time_step,     &
    real*8 , intent(in)       :: time_value
    real*8 , intent(in)       :: time_step
    integer, intent(in)       :: nbasis
+   integer, intent(in)       :: nb_ext
    integer, intent(in)       :: natoms
 
    real*8, intent(in)        :: nucpos(3, natoms)
@@ -21,14 +24,14 @@ subroutine ehrendyn_step( step_back, propagator_id, time_value, time_step,     &
    real*8, intent(inout)     :: nucfor_ds(3, natoms)
 
    real*8, intent(in)        :: Sinv(nbasis, nbasis)
-   real*8, intent(in)        :: Uinv(nbasis, nbasis)
-   real*8, intent(in)        :: Linv(nbasis, nbasis)
+   real*8, intent(in)        :: Uinv(nb_ext, nb_ext)
+   real*8, intent(in)        :: Linv(nb_ext, nb_ext)
 
-   complex*16, intent(in)    :: dens_oldi(nbasis, nbasis)
-   complex*16, intent(in)    :: dens_midi(nbasis, nbasis)
-   complex*16, intent(out)   :: dens_newo(nbasis, nbasis)
+   complex*16, intent(in)    :: dens_oldi(nb_ext, nb_ext)
+   complex*16, intent(in)    :: dens_midi(nb_ext, nb_ext)
+   complex*16, intent(out)   :: dens_newo(nb_ext, nb_ext)
 
-   real*8    , intent(inout) :: fock_mid(nbasis, nbasis)
+   real*8    , intent(inout) :: fock_mid(nb_ext, nb_ext)
    real*8    , intent(inout) :: dipmom(3)
    real*8    , intent(inout) :: energy
 
@@ -49,10 +52,10 @@ subroutine ehrendyn_step( step_back, propagator_id, time_value, time_step,     &
    integer, parameter :: propagator_id_verlet = 1
    integer, parameter :: propagator_id_magnus = 2
 
-   allocate( Bmat(nbasis,nbasis), Dmat(nbasis,nbasis), Tmat(nbasis,nbasis) )
-   allocate( dens_old(nbasis,nbasis), dens_mid(nbasis,nbasis) )
-   allocate( dens_mao(nbasis,nbasis) )
-   allocate( fock0(nbasis,nbasis) )
+   allocate( Bmat(nbasis,nbasis), Dmat(nbasis,nbasis), Tmat(nb_ext,nb_ext) )
+   allocate( dens_old(nb_ext,nb_ext), dens_mid(nb_ext,nb_ext) )
+   allocate( dens_mao(nb_ext,nb_ext) )
+   allocate( fock0(nb_ext,nb_ext) )
 
    dens_old   = dens_oldi
    dens_mid   = dens_midi
@@ -72,20 +75,20 @@ subroutine ehrendyn_step( step_back, propagator_id, time_value, time_step,     &
 
 
    do substep = 0, substeps
-      fock_mid = Fock0
+      fock_mid = fock0
       dipmom   = dipmom0
       energy   = energy0
       nucfor_ds(:,:) = 0.0d0
 
 !     Preparing matrices (received in AO and returned in ON)
-      call ehrendyn_prep( Nbasis, Natoms, time, .true., Uinv, Linv, Sinv, &
-                        & dens_mid, fock_mid, Bmat, Dmat, Tmat, &
-                        & nucpos, nucvel, nucfor_ds, dipmom, energy )
+      call ehrendyn_prep( Nbasis, nb_ext, Natoms, time, .true., Uinv, Linv,    &
+                          Sinv, dens_mid, fock_mid, Bmat, Dmat, Tmat,          &
+                          nucpos, nucvel, nucfor_ds, dipmom, energy )
 
 !     Density Propagation (works in ON)
       if (propagator_id==propagator_id_verlet) then
 !         print*,'This is verlet!'
-         call ehrenaux_verlet( nbasis, dt, Tmat, dens_old, dens_mid, dens_newo )
+         call ehrenaux_verlet( nb_ext, dt, Tmat, dens_old, dens_mid, dens_newo )
 
       else if (propagator_id==propagator_id_magnus) then
 !         print*,'This is magnus!'

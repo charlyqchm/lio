@@ -120,11 +120,11 @@ OBJECTS += dftb_subs.o
 OBJECTS += dftb_data.o
 
 tmplist :=
-tmplist += SCF.o TD.o
+tmplist += SCF.o TD.o ehrensubs.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dftb_subs.mod
 
 tmplist :=
-tmplist += SCF.o dftb_subs.o input_read.o lionml_data.o
+tmplist += SCF.o dftb_subs.o input_read.o lionml_data.o ehrensubs.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dftb_data.mod
 
 tmplist :=
