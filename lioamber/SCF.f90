@@ -491,7 +491,7 @@ subroutine SCF(E)
 
         niter=niter+1
         nniter=niter
-        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1 
+        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1
 !       (first steep of damping after NMAX steeps without convergence)
 
         E1=0.0D0
@@ -573,11 +573,11 @@ subroutine SCF(E)
 !       consecutive tbdft_calc switches? really?
 !
       if (tbdft_calc) then
-         NCOa_f = NCOa + MTB
+         NCOa_f = NCOa + int(MTB/2)
          call build_chimera_TBDFT (M, fock_a0, fock_a, natom)
          call construct_rhoTBDFT(M, rho_a, rho_a0 ,rhoa_tbdft, niter,OPEN)
          if (OPEN) then
-            NCOb_f = NCOb + MTB
+            NCOb_f = NCOb + int(MTB/2)
             call build_chimera_TBDFT(M, fock_b0, fock_b, natom)
             call construct_rhoTBDFT(M, rho_b, rho_b0 ,rhob_tbdft,niter, OPEN)
          end if

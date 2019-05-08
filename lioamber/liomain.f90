@@ -35,8 +35,8 @@ subroutine liomain(E, dipxyz)
 
 !TBDFT: Updating M and NCO for TBDFT calculations
     if (tbdft_calc) then
-       M_f = M+2*MTB
-       NCO_f=NCO+MTB
+       M_f = M+MTB
+       NCO_f=NCO+MTB/2
     else
        M_f = M
        NCO_f=NCO
@@ -70,7 +70,7 @@ subroutine liomain(E, dipxyz)
         call do_population_analysis(Pmat_vec)
         if (dipole) call do_dipole(Pmat_vec, dipxyz, 69)
         if (fukui) call do_fukui()
-        
+
 
         if (writeforces) then
             if (ecpmode) stop "ECP does not feature forces calculation."
@@ -279,8 +279,8 @@ subroutine do_restart(UID, rho_total)
    integer :: M_f, NCO_f, i0
 !TBDFT: Updating M for TBDFT calculations
    if (tbdft_calc) then
-      M_f = M+2*MTB
-      NCO_f=NCO+MTB
+      M_f = M+MTB
+      NCO_f=NCO+MTB/2
       i0=MTB
    else
       M_f = M

@@ -1140,6 +1140,7 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
    use tbdft_data,        only: tbdft_calc,MTB, rhold_AOTB, rhonew_AOTB
    use tbdft_subs,        only: chimeraTBDFT_evol
    use typedef_operator, only: operator
+
    implicit none
 
    type(operator), intent(inout)           :: fock_aop, rho_aop

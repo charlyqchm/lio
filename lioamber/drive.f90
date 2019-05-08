@@ -61,8 +61,8 @@ subroutine drive(iostat)
 
 !TBDFT: Updating M and NCO for TBDFT calculations
     if (tbdft_calc) then
-       M_f = M+2*MTB
-       NCO_f=NCO+MTB
+       M_f = M+MTB
+       NCO_f=NCO+MTB/2
        i0 = MTB
     else
        M_f = M
