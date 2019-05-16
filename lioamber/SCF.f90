@@ -72,6 +72,7 @@ subroutine SCF(E)
    use lr_data, only: lresp
    use lrtddft, only: linear_response
    use converger_ls , only: Rho_LS, changed_to_LS, P_conver, P_linearsearch_init
+   use exchange_subs, only: exchange_mat
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
@@ -491,7 +492,7 @@ subroutine SCF(E)
 
         niter=niter+1
         nniter=niter
-        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1 
+        IF (changed_to_LS .and. niter.eq. (NMAX/2 +1)) nniter=1
 !       (first steep of damping after NMAX steeps without convergence)
 
         E1=0.0D0
@@ -565,6 +566,10 @@ subroutine SCF(E)
            call spunpack('L', M, Fmat_vec, fock_a0)
            call fockbias_apply( 0.0d0, fock_a0 )
         end if
+
+!carlos: inserting exact exchange:
+        call exchange_mat(rho_a0, fock_a0)
+        if (OPEN) call exchange_mat(rho_b0, fock_b0)
 
 !------------------------------------------------------------------------------!
 ! TBDFT: Fock and Rho for TBDFT are builded.

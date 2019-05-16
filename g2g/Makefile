@@ -82,7 +82,7 @@ LIBRARIES := $(CUDA_LDFLAGS) $(CUDA_LIBS) $(LIBXC_LIBRARIES) -lrt
 ifeq ($(intel),0)
   LIBRARIES += -L$(PACK_LIB_DIR) -lcblas
   CXXFLAGS += -DINTEL_COMP=0
-else 
+else
   CXXFLAGS += -DINTEL_COMP=1
 endif
 
@@ -93,6 +93,7 @@ all: $(LIBRARY)
 
 include Makefile.depends
 include Makefile.lrtddft
+include Makefile.exchange
 
 depend:
 	@touch Makefile.depends
@@ -108,3 +109,4 @@ clean:
 	@rm -f cuda/*.cu_o cuda/*.cudafe* cuda/*.ptx cuda/*.hash cuda/*.cubin cuda/*.i cuda/*.ii cuda/*.fatbin.* cuda/*.cu.c
 	@rm -f analytic_integral/*.o* analytic_integral/cuda/*.o*
 	@rm -f lrtddft/*.o*
+	@rm -f exact_exchange/*.o*

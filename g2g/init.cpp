@@ -78,7 +78,8 @@ extern "C" void g2g_parameter_init_(
     const unsigned int& nco, bool& OPEN, const unsigned int& nunp,
     const unsigned int& nopt, const unsigned int& Iexch, double* e, double* e2,
     double* e3, double* wang, double* wang2, double* wang3,
-    bool& use_libxc, const unsigned int& ex_functional_id, const unsigned int& ec_functional_id){
+    bool& use_libxc, const unsigned int& ex_functional_id,
+    const unsigned int& ec_functional_id, double* a_PBE0){
   fortran_vars.atoms = natom;
   fortran_vars.max_atoms = max_atoms;
   fortran_vars.gaussians = ngaussians;
@@ -213,6 +214,9 @@ extern "C" void g2g_parameter_init_(
     }
 #endif
 
+/** PBE0 Variable**/
+   fortran_vars.a_PBE0 = a_PBE0;
+
 #if GPU_KERNELS
   G2G::gpu_set_variables();
 #endif
@@ -318,12 +322,12 @@ template <bool compute_rmm, bool lda, bool compute_forces>
 void g2g_iteration(bool compute_energy, double* fort_energy_ptr,
                    double* fort_forces_ptr) {
   Timers timers;
-#ifdef _DEBUG 
+#ifdef _DEBUG
   feenableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW);
 #endif
   partition.solve(timers, compute_rmm, lda, compute_forces, compute_energy,
                   fort_energy_ptr, fort_forces_ptr, fortran_vars.OPEN);
-#ifdef _DEBUG 
+#ifdef _DEBUG
   fedisableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW);
 #endif
 }

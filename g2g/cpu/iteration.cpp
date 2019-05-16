@@ -46,6 +46,9 @@ void PointGroupCPU<scalar_type>::solve_closed(
 
   //printf("solve_closed(...)\n");
 
+  //PBE0 parameter to weight exchange energy:
+  double a_factor = fortran_vars.a_PBE0
+
 #if CPU_RECOMPUTE or !GPU_KERNELS
   /** Compute functions **/
   timers.functions.start();
@@ -199,7 +202,7 @@ void PointGroupCPU<scalar_type>::solve_closed(
       const scalar_type wp = this->points[point].weight;
 
       if (compute_energy) {
-        localenergy += (pd * wp) * (exc + corr);
+        localenergy += (pd * wp) * (a_factor*exc + corr);
       }
 
       /** RMM **/
@@ -326,6 +329,9 @@ void PointGroupCPU<scalar_type>::solve_opened(
   compute_functions(compute_forces, !lda);
   timers.functions.pause();
 #endif
+
+  //PBE0 parameter to weight exchange energy:
+  double a_factor = fortran_vars.a_PBE0
 
   double localenergy = 0.0;
 
@@ -482,7 +488,7 @@ void PointGroupCPU<scalar_type>::solve_opened(
       const scalar_type wp = this->points[point].weight;
 
       if (compute_energy) {
-        localenergy += ((pd_a + pd_b) * wp) * (exc + corr);
+        localenergy += ((pd_a + pd_b) * wp) * (a_factor * exc + corr);
       }
 
       /** RMM **/

@@ -3,6 +3,7 @@
 
 #include "pbeCS.h"
 #include "../common.h"
+#include "../init.h"
 #include "../fix_compile.h"
 #include "../scalar_vector_types.h"
 
@@ -147,9 +148,12 @@ __host__ __device__ void calc_ggaCS(scalar_type dens,
     scalar_type expbe, vxpbe, ecpbe, vcpbe;
     pbeCS(dens, dgrad, delgrad, rlap, expbe, vxpbe, ecpbe, vcpbe);
 
+    //PBE0 parameter to weight exchange energy:
+    double a_factor = fortran_vars.a_PBE0
+
     ex = expbe;
     ec = ecpbe;
-    y2a = vxpbe + vcpbe;
+    y2a = a_factor*vxpbe + vcpbe;
     return;
   }
 

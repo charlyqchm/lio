@@ -53,6 +53,10 @@ struct FortranVars {
   uint ec_functional_id; // Identificador del funcional de correlacion (correlation)
   /////////////////////////////////////
 
+//Carlos: esto es para intercambio exacto
+  FourCenter* Kmat = NULL;
+  int dim;
+
 };
 
 extern FortranVars fortran_vars;

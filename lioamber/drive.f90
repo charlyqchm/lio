@@ -27,6 +27,7 @@ subroutine drive(iostat)
    use liosubs_math, only: init_math
    use ghost_atoms_subs, only: summon_ghosts
    use tbdft_data  , only: MTB, tbdft_calc
+   use exchange_data,only: a_PBE0
 
 
    implicit none
@@ -180,12 +181,15 @@ subroutine drive(iostat)
    endif
    ! End of restart.
 
+   !Initialization of Exchange exact variables:
+   call exchange_init()
+
    ! G2G and AINT(GPU) Initializations
    call g2g_parameter_init(NORM, natom, natom, M, rqm, Rm2, Iz, Nr, Nr2,  &
                            Nuc, M, ncont, nshell, c, a, Pmat_vec, Fmat_vec,   &
                            Fmat_vec2, rhoalpha, rhobeta, NCO, OPEN, Nunp, 0,  &
                            Iexch, e_, e_2, e3, wang, wang2, wang3, use_libxc, &
-                           ex_functional_id, ec_functional_id)
+                           ex_functional_id, ec_functional_id,a_PBE0)
    call summon_ghosts(Iz, natom, verbose)
 
    if (gpu_level .ne. 0) call aint_parameter_init(Md, ncontd, nshelld, cd, ad, &

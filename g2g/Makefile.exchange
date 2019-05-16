@@ -1,0 +1,14 @@
+ifeq ($(DO_exchange),1)
+    LIBS_LIBINT = -L/$(LIBINT_HOME)/lib -lint2
+    INCS_LIBINT = -I/$(LIBINT_HOME)/include -I/$(LIBINT_HOME)/include/libint2 -I/$(EIGEN_HOME)
+    LIBRARIES  += $(LIBS_LIBINT)
+
+   exact_exchange/exchange_ex.o:exact_exchange/exchange_ex.cpp
+	  $(CXX) -std=c++11 $(CXXFLAGS) $(INCS_LIBINT) -c $< -o $@
+
+   exact_exchange/libintproxy.o:exact_exchange/libintproxy.cpp
+	  $(CXX) -std=c++11 $(CXXFLAGS) $(INCS_LIBINT) -c $< -o $@
+
+else
+   
+endif

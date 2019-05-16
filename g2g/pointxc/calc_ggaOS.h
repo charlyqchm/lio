@@ -1,4 +1,5 @@
 #include "../common.h"
+#include "../init.h"
 
 #include "pbeOS_main.h"
 #include "../fix_compile.h"
@@ -59,7 +60,7 @@ __host__ __device__ void calc_ggaOS(scalar_type dens_a, scalar_type dens_b,
       hess2.x = hess2_a.x + hess2_b.x;
       hess2.y = hess2_a.y + hess2_b.y;
       hess2.z = hess2_a.z + hess2_b.z;
-      
+
       scalar_type grad2_a =
           pow(grad_a.x, 2) + pow(grad_a.y, 2) + pow(grad_a.z, 2);
       dgrad_a = sqrt(grad2_a);
@@ -87,7 +88,7 @@ __host__ __device__ void calc_ggaOS(scalar_type dens_a, scalar_type dens_b,
       scalar_type grad2 = pow(grad.x, 2) + pow(grad.y, 2) + pow(grad.z, 2);
       dgrad = sqrt(grad2);
       delgrad = (pow(grad.x, 2) * hess1.x + pow(grad.y, 2) * hess1.y
-                  + pow(grad.z, 2) * hess1.z + 
+                  + pow(grad.z, 2) * hess1.z +
                   (scalar_type)2.0f * grad.x * grad.y * hess2.x +
                   (scalar_type)2.0f * grad.y * grad.z * hess2.z +
                   (scalar_type)2.0f * grad.x * grad.z * hess2.y) / dgrad;
@@ -100,11 +101,14 @@ __host__ __device__ void calc_ggaOS(scalar_type dens_a, scalar_type dens_b,
     }
   }
 
+  //PBE0 parameter to weight exchange energy:
+  double a_factor = fortran_vars.a_PBE0
+
   exc = expbe;
   corr = ecpbe;
-  exc_corr = expbe + ecpbe;
-  v_a = vxpbe_a + vcpbe_a;
-  v_b = vxpbe_b + vcpbe_b;
+  exc_corr = a_factor * expbe + ecpbe;
+  v_a = a_factor * vxpbe_a + vcpbe_a;
+  v_b = a_factor * vxpbe_b + vcpbe_b;
   return;
 }
 }
