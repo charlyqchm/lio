@@ -45,9 +45,11 @@ subroutine SCF(E)
    use time_dependent, only : TD
    use faint_cpu, only: int1, intsol, int2, int3mem, int3lu
    use tbdft_data, only : tbdft_calc, MTBDFT, MTB, chargeA_TB, chargeB_TB,     &
-                         rhoa_tbdft, rhob_tbdft
+                         rhoa_tbdft, rhob_tbdft, rho_OM, rho_OM2, auto_vec,    &
+                         auto_vec_t, auto_inv,auto_t_inv
    use tbdft_subs, only : tbdft_init, getXY_TBDFT, build_chimera_TBDFT,        &
-                          extract_rhoDFT, construct_rhoTBDFT, tbdft_scf_output
+                          extract_rhoDFT, construct_rhoTBDFT, tbdft_scf_output,&
+                          write_rhofirstTB
    use cubegen       , only: cubegen_vecin, cubegen_matin, cubegen_write
    use mask_ecp      , only: ECP_init, ECP_fock, ECP_energy
    use typedef_sop   , only: sop              ! Testing SOP
@@ -72,6 +74,7 @@ subroutine SCF(E)
    use lr_data, only: lresp
    use lrtddft, only: linear_response
    use converger_ls , only: Rho_LS, changed_to_LS, P_conver, P_linearsearch_init
+   use dos_subs     , only: init_PDOS, build_PDOS, write_DOS
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
@@ -195,6 +198,10 @@ subroutine SCF(E)
    else
       M_f = M
    end if
+
+!carlos: allocating variables for OM basis change
+
+   allocate(rho_OM(M_f,M_f),rho_OM2(M_f,M_f),auto_inv(M_f,M_f), auto_t_inv(M_f,M_f),auto_vec(M_f,M_f), auto_vec_t(M_f,M_f))
 
    allocate(fock_a(M_f,M_f), rho_a(M_f,M_f))
    allocate(morb_energy(M_f), morb_coefat(M_f,M_f))
@@ -826,9 +833,57 @@ subroutine SCF(E)
          stop
       endif
 !------------------------------------------------------------------------------!
+!carlos: DOS and PDOS analysis
+    do ii=1, M_f
+      write(777,*) morb_energy(ii)
+    end do
 
+  call init_PDOS(M_f)
+  call build_PDOS(morb_coefat, Smat, M, M_f, Nuc)
+  call write_DOS(M_f, NCO, morb_energy)
+
+!carlos: exciting manually the density matrix
+
+   rho_OM=0.0d0
+   rho_OM2=0.0d0
+   auto_vec=0.0d0
+   auto_vec_t=0.d0
+   auto_inv=0.0d0
+   auto_t_inv=0.0d0
+
+   auto_vec=morb_coefat
+
+   auto_vec_t=transpose(auto_vec)
+
+   call invert(auto_vec,auto_inv, M_f)
+   call invert(auto_vec_t,auto_t_inv, M_f)
+   call rho_bop%Gets_data_AO(rho_OM)
+
+   rho_OM2=matmul(rho_OM, auto_t_inv)
+   rho_OM=matmul(auto_inv,rho_OM2)
+
+   ! rho_OM(91,91) = rho_OM(91,91) - 1.0d0
+   rho_OM(98,98) = rho_OM(98,98) + 1.0d0
+
+   do ii=1, M_f
+      write(666,*) "P",ii,rho_OM(ii,ii)
+   end do
+   write(666,*) "-------------"
+
+   rho_OM2=matmul(rho_OM, auto_vec_t)
+   rho_OM=matmul(auto_vec,rho_OM2)
+
+   call rho_bop%Sets_data_AO(rho_OM)
+   ! rhoa_TBDFT = rho_OM
+   call messup_densmat(rho_OM)
+   call sprepack('L',M,rhobeta,rho_OM(MTB+1:MTB+M,MTB+1:MTB+M))
+   Pmat_vec=rhoalpha+rhobeta
+   ! call sprepack('L',M,Pmat_vec,rho_OM(MTB+1:MTB+M,MTB+1:MTB+M))
+!
+!
 !TBDFT: Mulliken analysis of TB part
-   if (tbdft_calc) call tbdft_scf_output(M,OPEN)
+   call tbdft_scf_output(M, OPEN)
+   call write_rhofirstTB(M_f, OPEN)
 
    if (MOD(npas,energy_freq).eq.0) then
 !       Resolve with last density to get XC energy
@@ -990,3 +1045,36 @@ subroutine SCF(E)
       call g2g_timer_stop('SCF_full')
       end subroutine SCF
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+
+subroutine invert(A, Ainv,M)
+  real*8, intent(in) :: A(M,M)
+  real*8, intent(inout) :: Ainv(M,M)
+
+  real*8, dimension(size(A,1)) :: work  ! work array for LAPACK
+  integer, dimension(size(A,1)) :: ipiv   ! pivot indices
+  integer :: n, info
+
+  ! External procedures defined in LAPACK
+  external DGETRF
+  external DGETRI
+
+  ! Store A in Ainv to prevent it from being overwritten by LAPACK
+  Ainv = A
+  n = size(A,1)
+
+  ! DGETRF computes an LU factorization of a general M-by-N matrix A
+  ! using partial pivoting with row interchanges.
+  call DGETRF(n, n, Ainv, n, ipiv, info)
+
+  if (info /= 0) then
+     stop 'Matrix is numerically singular!'
+  end if
+
+  ! DGETRI computes the inverse of a matrix using the LU factorization
+  ! computed by DGETRF.
+  call DGETRI(n, Ainv, n, ipiv, work, n, info)
+
+  if (info /= 0) then
+     stop 'Matrix inversion failed!'
+  end if
+end subroutine invert

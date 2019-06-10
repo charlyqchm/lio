@@ -136,6 +136,22 @@ tmplist += tbdft_subs.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/properties.mod
 
 ################################################################################
+OBJECTS += dos_subs.o
+OBJECTS += dos_data.o
+
+tmplist :=
+tmplist += SCF.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dos_subs.mod
+
+tmplist :=
+tmplist += dos_subs.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dos_data.mod
+
+tmplist :=
+tmplist += dos_subs.o
+$(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/tbdft_data.mod
+
+################################################################################
 OBJECTS += converger_data.o
 OBJECTS += converger_subs.o
 
@@ -350,7 +366,7 @@ ifeq ($(use_cublas),1)
   $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/fortran.o
 
   tmplist :=
-  tmplist += SCF.o TD.o typedef_operator.o transport.o propagators.o
+  tmplist += SCF.o TD.o typedef_operator.o transport.o propagators.o tbdft_subs.o
   $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/cublasmath.mod
 
   $(OBJPATH)/fortran.o: $(CUDA_HOME)/src/fortran.c

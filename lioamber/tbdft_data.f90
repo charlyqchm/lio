@@ -33,4 +33,17 @@ module tbdft_data
    complex(kind=8), allocatable :: rhold_AOTB(:,:,:)   ! rho in AO to calculate charges
    complex(kind=8), allocatable :: rhonew_AOTB(:,:,:)  ! rho in AO to calculate charges
 #endif
+
+!DLVN-TB variables:
+   integer                      :: tbdft_transport = 0
+   real(kind=8)                 :: driving_rateTB = 0.00d0
+   complex(kind=4), allocatable :: rhofirst_TB(:,:,:)
+
+!Carlos Temporal variables for OM base change:
+
+   real*8, allocatable  :: rho_OM(:,:), rho_OM2(:,:)
+   real*8, allocatable  :: auto_vec(:,:), auto_vec_t(:,:)
+   real*8, allocatable  :: auto_inv(:,:), auto_t_inv(:,:)
+
+
 end module tbdft_data

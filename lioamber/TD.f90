@@ -54,7 +54,8 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    use transport_data, only: transport_calc
    use transport_subs, only: transport_rho_trace, transport_generate_rho,      &
                              transport_init, transport_population
-   use tbdft_data     , only: tbdft_calc, MTBDFT, MTB
+   use tbdft_data     , only: tbdft_calc, MTBDFT, MTB,rho_OM, rho_OM2, &
+                              auto_vec, auto_vec_t, auto_inv, auto_t_inv
    use tbdft_subs     , only: tbdft_td_init, tbdft_td_output
    use fileio        , only: write_td_restart_verlet, write_td_restart_magnus, &
                              read_td_restart_verlet , read_td_restart_magnus,  &
@@ -322,7 +323,6 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
                               natom, Nuc, Iz, overlap, sqsm, devPtrY,devPtrXc, &
                               fock_bop, rho_bop)
          else
-
             call td_verlet_cu(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop,   &
                               rhonew, istep, Im, dt_lpfrg, transport_calc,     &
                               natom, Nuc, Iz, overlap, sqsm, devPtrY,devPtrXc)
@@ -351,12 +351,10 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
                               t/0.024190D0, M_f, nshell, ncont)
          endif
       end if
-
       call g2g_timer_start('complex_rho_on_to_ao-cu')
       call rho_aop%BChange_ONtoAO(devPtrXc, M_f, 'c')
       if (OPEN) call rho_bop%BChange_ONtoAO(devPtrXc, M_f, 'c')
       call g2g_timer_stop('complex_rho_on_to_ao-cu')
-
 #else
       if (is_lpfrg) then
          call td_bc_fock(M_f, M, MM, Fmat_vec, fock_aop,Xmat, natom, nshell,    &
@@ -400,6 +398,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       call rho_aop%BChange_ONtoAO(Xtrans, M_f, 'c')
       if (OPEN) call rho_bop%BChange_ONtoAO(Xtrans, M_f, 'c')
       call g2g_timer_stop('complex_rho_on_to_ao')
+
 #endif
       call g2g_timer_sum_pause("TD - Propagation")
 
@@ -415,6 +414,16 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       else
          call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
          call sprepack_ctr('L', M, Pmat_vec, rho_aux(MTB+1:MTB+M,MTB+1:MTB+M,1))
+      end if
+!carlos: checking density population:
+      if (mod(istep,10)==0) then
+         rho_OM=dble(rho_aux(:,:,2))
+         rho_OM2=matmul(rho_OM, auto_t_inv)
+         rho_OM=matmul(auto_inv,rho_OM2)
+         do ii=1, M_f
+            write(666,*) "P",ii,rho_OM(ii,ii)
+         end do
+         write(666,*) "-------------"
       end if
 
 !TBDFT: temporary TBDFT don't store restarts
@@ -475,6 +484,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
 
       call g2g_timer_stop('TD step')
       call g2g_timer_sum_pause("TD - TD Step")
+
 
  999  continue
 
@@ -1051,7 +1061,9 @@ subroutine td_verlet_cu(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
                         overlap, sqsm, devPtrY, devPtrXc, fock_bop, rho_bop)
    use cublasmath       , only : basechange_cublas
    use transport_subs   , only : transport_propagate_cu
-   use tbdft_data        , only : tbdft_calc, rhold_AOTB, rhonew_AOTB
+   use tbdft_data       , only : tbdft_calc, rhold_AOTB, rhonew_AOTB,         &
+                                 tbdft_transport
+   use tbdft_subs       , only : transport_TB
    use typedef_operator , only : operator
    implicit none
 
@@ -1096,6 +1108,14 @@ subroutine td_verlet_cu(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
                                   overlap, sqsm, rho_aux, devPtrY, OPEN)
    endif
 
+!DLVN_TBDFT: calculating the drving term
+!carlos: DLVN_TBDFT is just workinf for MAGNUS!!!!!
+   if(tbdft_calc.and.tbdft_transport==2) then
+      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
+      if(OPEN) call rho_bop%Gets_dataC_AO(rho_aux(:,:,2))
+      call transport_TB(M, natom, dim3, overlap, rho_aux ,devPtrY,Nuc,istep, OPEN)
+   end if
+
    call g2g_timer_start('commutator')
    call fock_aop%Commut_data_c(rho(:,:,1), rhonew(:,:,1), M_f)
    if (OPEN) call fock_bop%Commut_data_c(rho(:,:,2), rhonew(:,:,2), M_f)
@@ -1116,7 +1136,7 @@ subroutine td_verlet_cu(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    if(OPEN) call rho_bop%Sets_dataC_ON(rho(:,:,2))
 
 !TBDFT: rhonew and rhold in AO is store for charge calculations of TBDFT
-   if (tbdft_calc) then
+   if (tbdft_calc.and.tbdft_transport==0) then
       rhold_AOTB(:,:,1)=basechange_cublas(M_f,rhold(:,:,1),devPtrXc,'inv')
       rhonew_AOTB(:,:,1)=basechange_cublas(M_f,rhonew(:,:,1),devPtrXc,'inv')
 
@@ -1137,8 +1157,9 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
    use cublasmath    ,   only: basechange_cublas
    use propagators   ,   only: cupredictor, cumagnusfac
    use transport_subs,   only: transport_propagate_cu
-   use tbdft_data,        only: tbdft_calc,MTB, rhold_AOTB, rhonew_AOTB
-   use tbdft_subs,        only: chimeraTBDFT_evol
+   use tbdft_data,       only: tbdft_calc,MTB, rhold_AOTB, rhonew_AOTB,        &
+                               tbdft_transport
+   use tbdft_subs,       only: chimeraTBDFT_evol, transport_TB, tbdft_transport
    use typedef_operator, only: operator
 
    implicit none
@@ -1188,15 +1209,27 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
       call chimeraTBDFT_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,1), fock_aux(:,:,1),&
                             natom, istep)
       !TBDFT: rhold in AO is store for charge calculations of TBDFT
-      rhold_AOTB(:,:,1)=basechange_cublas(M_f,rho(:,:,1),devPtrXc,'inv')
+      if(tbdft_transport==0) then
+         rhold_AOTB(:,:,1)=basechange_cublas(M_f,rho(:,:,1),devPtrXc,'inv')
+      end if
 
       if(OPEN) then
         call chimeraTBDFT_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,2),               &
                               fock_aux(:,:,2), natom, istep)
-        rhold_AOTB(:,:,2)=basechange_cublas(M_f,rho(:,:,2),devPtrXc,'inv')
+        if(tbdft_transport==0) then
+           rhold_AOTB(:,:,1)=basechange_cublas(M_f,rho(:,:,1),devPtrXc,'inv')
+        end if
       end if
 
       fock=fock_aux
+   end if
+
+!DLVN_TBDFT: calculating the drving term
+!carlos: DLVN_TBDFT is just workinf for MAGNUS!!!!!
+   if(tbdft_calc.and.tbdft_transport==2) then
+      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
+      if(OPEN) call rho_bop%Gets_dataC_AO(rho_aux(:,:,2))
+      call transport_TB(M, natom, dim3, overlap, rho_aux ,devPtrY,Nuc,istep, OPEN)
    end if
 
    call g2g_timer_start('cupredictor')
@@ -1216,8 +1249,14 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
       rhonew = rhonew - rho_aux
    endif
 
+!DLVN_TBDFT: Adding driving term to the propagation
+   if (tbdft_calc.and.tbdft_transport==2) then
+      write(*,*) 'Transport TB: Adding driving term to the density.'
+      rhonew = rhonew - rho_aux
+   endif
+
 !TBDFT: rhonew in AO is store for charge calculations of TBDFT
-   if (tbdft_calc) then
+   if (tbdft_calc.and.tbdft_transport==0) then
       rhonew_AOTB(:,:,1)=basechange_cublas(M_f,rhonew(:,:,1),devPtrXc,'inv')
       if (OPEN) rhonew_AOTB(:,:,2)=basechange_cublas(M_f,rhonew(:,:,2),       &
                                                      devPtrXc,'inv')
