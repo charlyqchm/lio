@@ -1217,7 +1217,7 @@ subroutine td_magnus_cu(M, dim3, OPEN,fock_aop, F1a, F1b, rho_aop, rhonew,     &
         call chimeraTBDFT_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,2),               &
                               fock_aux(:,:,2), natom, istep)
         if(tbdft_transport==0) then
-           rhold_AOTB(:,:,1)=basechange_cublas(M_f,rho(:,:,1),devPtrXc,'inv')
+           rhold_AOTB(:,:,2)=basechange_cublas(M_f,rho(:,:,2),devPtrXc,'inv')
         end if
       end if
 

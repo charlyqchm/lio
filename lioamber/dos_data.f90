@@ -1,7 +1,7 @@
 module DOS_data
    implicit none
-   logical               :: dos_calc     = .true.
-   logical               :: pdos_calc    = .true.
+   logical               :: dos_calc     = .false.
+   logical               :: pdos_calc    = .false.
    logical               :: pdos_allb    = .false.
    integer               :: min_level    = 1
    integer               :: dos_nsteps   = 200000

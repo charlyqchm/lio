@@ -9,7 +9,7 @@ subroutine tbdft_init(M_in, Nuc, natom, open_shell)
 
    use tbdft_data, only: MTB, MTBDFT, end_bTB, Iend_TB, rhoa_TBDFT, rhob_TBDFT,&
                          gammaW, n_biasTB, basTB, n_atTB,n_atperbias,linkTB,   &
-                         VbiasTB,tbdft_transport,rhofirst_TB
+                         VbiasTB,tbdft_transport,rhofirst_TB,temp_TB, tr_ind
 
    implicit none
 
@@ -38,7 +38,8 @@ subroutine tbdft_init(M_in, Nuc, natom, open_shell)
    open(unit=1001, file='gamma.in')
 
    read(1001,*) n_biasTB
-
+!carlos: probando temperaturas
+   allocate(temp_TB(n_biasTB))
    n_atTB = int(MTB/n_biasTB)
 
    if(mod(MTB,n_biasTB)/=0) then
@@ -131,6 +132,12 @@ subroutine tbdft_init(M_in, Nuc, natom, open_shell)
       end if
       write(*,*) "RHOFIRST_TB READ"
 
+      allocate(tr_ind(MTBDFT))
+      tr_ind=0
+      do ii=1,n_atTB-50
+         tr_ind(ii)=1
+         tr_ind(n_atTB+ii)=2
+      end do
    end if
 
 end subroutine tbdft_init
@@ -281,26 +288,21 @@ subroutine build_chimera_TBDFT (M_in,fock_in, fock_TBDFT, natom)
 
    do jj = 1, end_bTB*n_atperbias
    do ii = 1, n_biasTB
-      link= MTB-n_biasTB+ii
+      link= n_atTB*ii
       fock_TBDFT(link, Iend_TB(ii,jj)+MTB) = gammaW(jj) * gammaTB
       fock_TBDFT(Iend_TB(ii,jj)+MTB,link) = gammaW(jj) * gammaTB
    end do
    end do
 
    do ii = 1,n_biasTB
-   do jj = 1,n_atTB-1
-      kk=jj+((ii-1)*(n_atTB-1))
+   do jj = 1,n_atTB
+      kk=jj+((ii-1)*(n_atTB))
       fock_TBDFT(kk,kk) = alfaTB + V_aux*VbiasTB(ii)
-      if (jj<n_atTB-1) then
+      if (jj<n_atTB) then
          fock_TBDFT(kk,kk+1) = betaTB
          fock_TBDFT(kk+1,kk) = betaTB
       end if
    end do
-      link = MTB-n_biasTB+ii
-      kk   = ii*(n_atTB-1)
-      fock_TBDFT(link,link) = alfaTB + V_aux*VbiasTB(ii)
-      fock_TBDFT(link,kk) = betaTB
-      fock_TBDFT(kk,link) = betaTB
    end do
 
    fock_TBDFT(MTB+1:MTB+M_in, MTB+1:MTB+M_in) = fock_in(:,:)
@@ -364,26 +366,21 @@ subroutine chimeraTBDFT_evol(M_in,fock_in, fock_TBDFT, natom, istep)
 
    do jj = 1, end_bTB*n_atperbias
    do ii = 1, n_biasTB
-      link= MTB-n_biasTB+ii
+      link= n_atTB*ii
       fock_TBDFT(link, Iend_TB(ii,jj)+MTB) = gammaW(jj) * gammaTB
       fock_TBDFT(Iend_TB(ii,jj)+MTB,link) = gammaW(jj) * gammaTB
    end do
    end do
 
    do ii = 1,n_biasTB
-   do jj = 1,n_atTB-1
-      kk=jj+((ii-1)*(n_atTB-1))
-      fock_TBDFT(kk,kk) = alfaTB+f_t*VbiasTB(ii)
-      if (jj<n_atTB-1) then
+   do jj = 1,n_atTB
+      kk=jj+((ii-1)*(n_atTB))
+      fock_TBDFT(kk,kk) = alfaTB + f_t*VbiasTB(ii)
+      if (jj<n_atTB) then
          fock_TBDFT(kk,kk+1) = betaTB
          fock_TBDFT(kk+1,kk) = betaTB
       end if
    end do
-      link = MTB-n_biasTB+ii
-      kk   = ii*(n_atTB-1)
-      fock_TBDFT(link,link) = alfaTB+f_t*VbiasTB(ii)
-      fock_TBDFT(link,kk) = betaTB
-      fock_TBDFT(kk,link) = betaTB
    end do
 
    fock_TBDFT(MTB+1:MTB+M_in, MTB+1:MTB+M_in) = fock_in(:,:)
@@ -404,12 +401,10 @@ subroutine TB_current (M_in,delta_rho, overlap, TB_electrode, TB_M)
    real(kind=8) :: qe
 
    do ii=1,n_biasTB
-   do jj = 1, n_atTB-1
-      kk=jj+((ii-1)*(n_atTB-1))
+   do jj = 1, n_atTB
+      kk=jj+((ii-1)*(n_atTB))
       TB_electrode(ii) = TB_electrode(ii) + delta_rho(kk,kk)
    end do
-      TB_electrode(ii) = TB_electrode(ii) + delta_rho(MTB-n_biasTB+ii,       &
-                                                      MTB-n_biasTB+ii)
    end do
 
    do ii = 1,M_in
@@ -444,11 +439,10 @@ subroutine tbdft_scf_output(M_in, open_shell)
    chargeTB = n_atTB
 
    do ii=1,n_biasTB
-   do jj = 1, n_atTB-1
-      kk=jj+((ii-1)*(n_atTB-1))
+   do jj = 1, n_atTB
+      kk=jj+((ii-1)*(n_atTB))
       chargeTB(ii) = chargeTB(ii) - rho_aux(kk,kk)
    end do
-      chargeTB(ii) = chargeTB(ii) - rho_aux(MTB-n_biasTB+ii,MTB-n_biasTB+ii)
    end do
 
    open(unit=20202, file='mullikenTB')
@@ -514,22 +508,18 @@ subroutine tbdft_td_output(M_in, thrddim, rho_aux, overlap, istep, Iz, natom, &
 
       chargeTB = n_atTB
       do ii=1,n_biasTB
-      do jj = 1, n_atTB-1
-         kk=jj+((ii-1)*(n_atTB-1))
+      do jj = 1, n_atTB
+         kk=jj+((ii-1)*(n_atTB))
          chargeTB(ii) = chargeTB(ii) - rho_aux(kk,kk,1)
       end do
-         chargeTB(ii) = chargeTB(ii) - rho_aux(MTB-n_biasTB+ii,              &
-                                               MTB-n_biasTB+ii,1)
       end do
 
       if (open_shell) then
          do ii=1,n_biasTB
-         do jj = 1, n_atTB-1
-            kk=jj+((ii-1)*(n_atTB-1))
+         do jj = 1, n_atTB
+            kk=jj+((ii-1)*(n_atTB))
             chargeTB(ii) = chargeTB(ii) - rho_aux(kk,kk,2)
          end do
-            chargeTB(ii) = chargeTB(ii) - rho_aux(MTB-n_biasTB+ii,           &
-                                                  MTB-n_biasTB+ii,2)
          end do
       end if
 
@@ -563,7 +553,7 @@ end subroutine tbdft_td_output
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 subroutine transport_TB(M, natom, dim3, overlap, rho_aux ,devPtrY,Nuc,istep, OPEN)
    use tbdft_data     , only: MTB, MTBDFT, rhofirst_TB, driving_rateTB,n_biasTB, &
-                             n_atTB,rhonew_AOTB
+                             n_atTB,rhonew_AOTB,tr_ind
    use cublasmath    , only: basechange_cublas
 
    implicit none
@@ -598,23 +588,38 @@ subroutine transport_TB(M, natom, dim3, overlap, rho_aux ,devPtrY,Nuc,istep, OPE
    end if
 !carlos: The driving term is calculated
 
-   do jj=1,MTB
-   do ii=1,MTB
-      rhoscratch(ii,jj,1) = rho_aux(ii,jj,1) - rhofirst_TB(ii,jj,1)
-      if(OPEN) then
-         rhoscratch(ii,jj,2) = rho_aux(ii,jj,2) - rhofirst_TB(ii,jj,2)
+   do jj=1, MTBDFT
+   do ii=jj,MTBDFT
+      if ((tr_ind(ii)==1.and.tr_ind(jj)==1).or.(tr_ind(ii)==2.and.tr_ind(jj)==2)) then
+         rhoscratch(ii,jj,1) = rho_aux(ii,jj,1) - rhofirst_TB(ii,jj,1)
+      else if ((tr_ind(ii)==0.and.tr_ind(jj)/=0).or.((tr_ind(ii)/=0.and.tr_ind(jj)==0))) then
+         rhoscratch(ii,jj,1) = 0.5d0*(rho_aux(ii,jj,1)-rhofirst_TB(ii,jj,1))
+      else if ((tr_ind(ii)==1.and.tr_ind(jj)==2).or.(tr_ind(ii)==2.and.tr_ind(jj)==1)) then
+         rhoscratch(ii,jj,1) = rho_aux(ii,jj,1)-rhofirst_TB(ii,jj,1)
       end if
+      rhoscratch(jj,ii,1) = rhoscratch(ii,jj,1)
    end do
    end do
 
-   do jj=MTB+1,MTB+M
-   do ii=1,MTB
-      rhoscratch(ii,jj,1) = 0.5d0*(rho_aux(ii,jj,1) - rhofirst_TB(ii,jj,1))
-      if(OPEN) rhoscratch(ii,jj,2) = 0.5d0*(rho_aux(ii,jj,2) -                  &
-                                            rhofirst_TB(ii,jj,2))
-      rhoscratch(jj,ii,:) = rhoscratch(ii,jj,:)
-   end do
-   end do
+
+
+   ! do jj=1,MTB
+   ! do ii=1,MTB
+   !    rhoscratch(ii,jj,1) = rho_aux(ii,jj,1) - rhofirst_TB(ii,jj,1)
+   !    if(OPEN) then
+   !       rhoscratch(ii,jj,2) = rho_aux(ii,jj,2) - rhofirst_TB(ii,jj,2)
+   !    end if
+   ! end do
+   ! end do
+   !
+   ! do jj=MTB+1,MTB+M
+   ! do ii=1,MTB
+   !    rhoscratch(ii,jj,1) = 0.5d0*(rho_aux(ii,jj,1) - rhofirst_TB(ii,jj,1))
+   !    if(OPEN) rhoscratch(ii,jj,2) = 0.5d0*(rho_aux(ii,jj,2) -                  &
+   !                                          rhofirst_TB(ii,jj,2))
+   !    rhoscratch(jj,ii,:) = rhoscratch(ii,jj,:)
+   ! end do
+   ! end do
 
 
    rhoscratch  = scratchgamma*rhoscratch
@@ -658,6 +663,66 @@ subroutine write_rhofirstTB(M_in, OPEN)
    write(*,*) 'RHOFIRST_TB writed'
 
 end subroutine write_rhofirstTB
+
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+subroutine heat_the_metal(rho_tot, M_in,M)
+
+   use tbdft_data, only: MTB, auto_val, auto_vec,auto_inv,  auto_vec_t,        &
+                         auto_t_inv, alfaTB, n_atTB,n_biasTB, temp_TB
+
+   implicit none
+   integer     , intent(in)    :: M_in,M
+   real(kind=8), intent(inout) :: rho_tot(M_in,M_in)
+   real(kind=8)                :: rho_TB(n_atTB,n_atTB, n_biasTB)
+   real(kind=8)                :: rho_aux(n_atTB,n_atTB), rho_aux1(M,M)
+   real(kind=8)                :: rho_temp, expo
+   real(kind=8)                :: t_fac=3.1577464d5
+   integer                     :: ii, jj, kk, init,lim
+
+   rho_aux=0.0d0
+   rho_TB=0.0d0
+   ! rho_aux=matmul(rho_tot, auto_t_inv)
+   ! rho_aux=matmul(auto_inv,rho_aux)
+
+
+   ! do ii=1, n_biasTB
+      ! rho_TB(:,:,ii)=rho_aux(:,:)
+   ! end do
+
+   do jj=1, n_biasTB
+   do ii=1,n_atTB
+      expo         = t_fac*(auto_val(ii)-alfaTB)/temp_TB(jj)
+      rho_temp = 2.0d0/(dexp(expo)+1.0d0)
+      rho_TB(ii,ii,jj)=rho_temp
+   end do
+   end do
+
+   do ii=1, n_biasTB
+      rho_aux = rho_TB(:,:,ii)
+      rho_aux = matmul(rho_aux, auto_vec_t)
+      rho_aux = matmul(auto_vec,rho_aux)
+      rho_TB(:,:,ii) = rho_aux(:,:)
+   end do
+
+   rho_aux1             = rho_tot(MTB+1:MTB+M,MTB+1:MTB+M)
+   rho_tot              = 0.0d0
+
+   do kk=1,n_biasTB
+      init=(kk-1)*n_atTB+1
+      lim =kk*n_atTB
+      rho_tot(init:lim,init:lim)=rho_TB(:,:,kk)
+   end do
+
+   do kk=1,n_biasTB
+      init=(kk-1)*n_atTB+50+1
+      lim =kk*n_atTB
+      rho_tot(init:lim,init:lim)=0.0d0
+   end do
+
+   rho_tot(MTB+1:MTB+M,MTB+1:MTB+M) = rho_aux1
+
+end subroutine heat_the_metal
+
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

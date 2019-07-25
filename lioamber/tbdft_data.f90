@@ -44,6 +44,9 @@ module tbdft_data
    real*8, allocatable  :: rho_OM(:,:), rho_OM2(:,:)
    real*8, allocatable  :: auto_vec(:,:), auto_vec_t(:,:)
    real*8, allocatable  :: auto_inv(:,:), auto_t_inv(:,:)
-
+   ! real*8, allocatable  :: Umat(:,:), Umat_t(:,:)
+   integer, allocatable :: tr_ind(:) !indice de transporte
+   real*8, allocatable  :: auto_val(:)
+   real*8, allocatable  :: temp_TB(:)
 
 end module tbdft_data

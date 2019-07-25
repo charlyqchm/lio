@@ -46,10 +46,11 @@ subroutine SCF(E)
    use faint_cpu, only: int1, intsol, int2, int3mem, int3lu
    use tbdft_data, only : tbdft_calc, MTBDFT, MTB, chargeA_TB, chargeB_TB,     &
                          rhoa_tbdft, rhob_tbdft, rho_OM, rho_OM2, auto_vec,    &
-                         auto_vec_t, auto_inv,auto_t_inv
+                         auto_vec_t, auto_inv,auto_t_inv,auto_val, temp_TB,    &
+                         n_atTB
    use tbdft_subs, only : tbdft_init, getXY_TBDFT, build_chimera_TBDFT,        &
                           extract_rhoDFT, construct_rhoTBDFT, tbdft_scf_output,&
-                          write_rhofirstTB
+                          write_rhofirstTB, heat_the_metal
    use cubegen       , only: cubegen_vecin, cubegen_matin, cubegen_write
    use mask_ecp      , only: ECP_init, ECP_fock, ECP_energy
    use typedef_sop   , only: sop              ! Testing SOP
@@ -199,9 +200,7 @@ subroutine SCF(E)
       M_f = M
    end if
 
-!carlos: allocating variables for OM basis change
 
-   allocate(rho_OM(M_f,M_f),rho_OM2(M_f,M_f),auto_inv(M_f,M_f), auto_t_inv(M_f,M_f),auto_vec(M_f,M_f), auto_vec_t(M_f,M_f))
 
    allocate(fock_a(M_f,M_f), rho_a(M_f,M_f))
    allocate(morb_energy(M_f), morb_coefat(M_f,M_f))
@@ -842,7 +841,12 @@ subroutine SCF(E)
   call build_PDOS(morb_coefat, Smat, M, M_f, Nuc)
   call write_DOS(M_f, NCO, morb_energy)
 
-!carlos: exciting manually the density matrix
+!carlos: allocating variables for OM basis change
+
+   allocate(rho_OM(M_f,M_f),rho_OM2(M_f,M_f),auto_inv(n_atTB,n_atTB),    &
+              auto_t_inv(n_atTB,n_atTB),auto_vec(n_atTB,n_atTB),                 &
+              auto_vec_t(n_atTB,n_atTB), auto_val(n_atTB))
+!charly: exciting manually the density matrix
 
    rho_OM=0.0d0
    rho_OM2=0.0d0
@@ -851,36 +855,26 @@ subroutine SCF(E)
    auto_inv=0.0d0
    auto_t_inv=0.0d0
 
-   auto_vec=morb_coefat
-
-   auto_vec_t=transpose(auto_vec)
-
-   call invert(auto_vec,auto_inv, M_f)
-   call invert(auto_vec_t,auto_t_inv, M_f)
-   call rho_bop%Gets_data_AO(rho_OM)
-
-   rho_OM2=matmul(rho_OM, auto_t_inv)
-   rho_OM=matmul(auto_inv,rho_OM2)
-
-   ! rho_OM(91,91) = rho_OM(91,91) - 1.0d0
-   rho_OM(98,98) = rho_OM(98,98) + 1.0d0
-
-   do ii=1, M_f
-      write(666,*) "P",ii,rho_OM(ii,ii)
-   end do
-   write(666,*) "-------------"
-
-   rho_OM2=matmul(rho_OM, auto_vec_t)
-   rho_OM=matmul(auto_vec,rho_OM2)
-
-   call rho_bop%Sets_data_AO(rho_OM)
+   ! call fock_aop%Sets_data_ON(fock_a(1:n_atTB,1:n_atTB))
+   ! call fock_aop%Diagon_datamat(auto_vec, auto_val)
+   
+   ! auto_vec_t=transpose(auto_vec)
+   
+   ! call rho_aop%Gets_data_AO(rho_OM)
+   ! temp_TB(1)=10.0d0
+   ! temp_TB(2)=10000.0d0
+   !
+   ! call heat_the_metal(rho_OM ,M_f,M)
+   
+   ! call rho_aop%Sets_data_AO(rho_OM)
+   !
+   ! call messup_densmat(rho_OM)
    ! rhoa_TBDFT = rho_OM
-   call messup_densmat(rho_OM)
-   call sprepack('L',M,rhobeta,rho_OM(MTB+1:MTB+M,MTB+1:MTB+M))
-   Pmat_vec=rhoalpha+rhobeta
+   !
+   ! ! call sprepack('L',M,rhobeta,rho_OM(MTB+1:MTB+M,MTB+1:MTB+M))
+   ! ! Pmat_vec=rhoalpha+rhobeta
    ! call sprepack('L',M,Pmat_vec,rho_OM(MTB+1:MTB+M,MTB+1:MTB+M))
-!
-!
+
 !TBDFT: Mulliken analysis of TB part
    call tbdft_scf_output(M, OPEN)
    call write_rhofirstTB(M_f, OPEN)
@@ -1045,7 +1039,7 @@ subroutine SCF(E)
       call g2g_timer_stop('SCF_full')
       end subroutine SCF
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
-
+!carlos: invertion subroutine
 subroutine invert(A, Ainv,M)
   real*8, intent(in) :: A(M,M)
   real*8, intent(inout) :: Ainv(M,M)
@@ -1078,3 +1072,36 @@ subroutine invert(A, Ainv,M)
      stop 'Matrix inversion failed!'
   end if
 end subroutine invert
+
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+!carlos:read or write coeficients for inversion matrix.
+subroutine read_and_write_coef(coef_dir, coef_inv, dim, option)
+
+  implicit none
+  integer, intent(in)         :: dim
+  integer, intent(in)         :: option
+  real(kind=8), intent(inout) :: coef_dir(dim, dim)
+  real(kind=8), intent(inout) :: coef_inv(dim, dim)
+  integer :: ii, jj
+
+  select case (option)
+  case(0) !writing
+     open(unit=80708, file='coef.out')
+     do jj=1, dim
+     do ii=1, dim
+        write(80708,*) ii, jj,coef_dir(ii,jj), coef_inv(ii,jj)
+     end do
+     end do
+     close(80708)
+
+  case(1) !reading
+     open(unit=80708, file='coef.in')
+     do ii=1, dim
+     do jj=1, dim
+        read(80708,*) coef_dir(ii,jj), coef_inv(ii,jj)
+     end do
+     end do
+     close(80708)
+  end select
+
+end subroutine read_and_write_coef
