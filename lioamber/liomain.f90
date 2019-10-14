@@ -34,6 +34,8 @@ subroutine liomain(E, dipxyz)
    use time_dependent  , only: TD
    use typedef_operator, only: operator
    use dos_subs        , only: init_PDOS, build_PDOS, write_DOS
+   use armonic_data    , only: armonic_calc
+   use armonic_subs    , only: grad_calc
 
    implicit none
    real(kind=8)  , intent(inout) :: E, dipxyz(3)
@@ -70,6 +72,8 @@ subroutine liomain(E, dipxyz)
       call cubegen_write(MO_coef_at)
    else if (tbdft_calc == 4) then
       call tbdft_calibration(E, fock_aop, rho_aop, fock_bop, rho_bop)
+   else if (armonic_calc /= 0 ) then
+      call grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop)
    else
       if (.not. tdrestart) then
          if (doing_cdft) then
