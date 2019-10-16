@@ -6,10 +6,10 @@ contains
 !###############################################################################
 subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
-   use garcha_mod      , only : r, natom, rqm
-   use basis_data      , only : M
+   use garcha_mod      , only : r, natom, rqm, Smat
+   use basis_data      , only : M, Nuc !nuc is temporary
    use armonic_data    , only : armonic_calc, hess_norder, delta_h, mass_w,    &
-                                armonic_freq, armonic_vec
+                                armonic_freq, armonic_vec, freq2cm
    use typedef_operator, only : operator
 
    implicit none
@@ -23,10 +23,14 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
    real(kind=8)              :: grad0(3*natom)
    real(kind=8), allocatable :: grad(:,:,:)
    real(kind=8), allocatable :: Df_Dr(:,:,:)
+   real(kind=8), allocatable :: DS_Dr(:,:,:)
    real(kind=8), allocatable :: dxyzqm(:,:)
    real(kind=8), allocatable :: Dfock_a(:,:,:)
+   real(kind=8), allocatable :: DS_mat(:,:,:)
    real(kind=8), allocatable :: hess_mat(:,:)
+   real(kind=8), allocatable :: S_inv(:,:)
    integer                   :: ii, jj, kk, rr, ss
+   real(kind=8)              :: freq(3*natom)
    ! real(kind=8), allocatable :: DEner(:,:) !TEMPORAL ARRAY FOR TESTS
    ! real(kind=8), allocatable :: f_posta(:,:) !TEMPORAL ARRAY FOR TESTS
 
@@ -41,23 +45,27 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
    allocate(dxyzqm(3, natom), hess_mat(3*natom, 3*natom))
 
-   if (armonic_calc == 2) allocate(Dfock_a(M,M,3*natom))
+   if (armonic_calc == 2) allocate(Dfock_a(M,M,3*natom),DS_mat(M,M,3*natom),   &
+                                   S_inv(M,M))
 
    if (hess_norder==1) then
       allocate (grad(3*natom,-1:1,3*natom))
-      if (armonic_calc == 2) allocate(Df_Dr(M,M,-1:1))
+      if (armonic_calc == 2) allocate(Df_Dr(M,M,-1:1), DS_Dr(M,M,-1:1))
    else
       allocate (grad(3*natom,-2:2,3*natom))
-      if (armonic_calc == 2) allocate(Df_Dr(M,M,-2:2))
+      if (armonic_calc == 2) allocate(Df_Dr(M,M,-2:2), DS_Dr(M,M,-2:2))
    end if
-   grad=0.0D0
-   Df_Dr   = 0.0d0
-   Dfock_a = 0.0d0
+
+   grad     = 0.0D0
+   Df_Dr    = 0.0d0
+   Dfock_a  = 0.0d0
+   S_inv    = 0.0d0
 
 ! Calculating energy and gradient at the initial geometry
 
    call SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
    call dft_get_qm_forces(dxyzqm)
+   if (armonic_calc == 2) call invert_mat(Smat, S_inv, M)
 
    do ii =1, natom
    do jj=1, 3
@@ -71,6 +79,7 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
    do ii = 1, natom
    do jj=1, 3
       kk=3*(ii-1)+jj
+
 !     Forward displacement
 !     --------------------
       r_new = r_init
@@ -88,7 +97,10 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
       end do
       end do
 
-      if (armonic_calc == 2) call fock_aop%Gets_data_AO(Df_Dr(:,:,1))
+      if (armonic_calc == 2) then
+         call fock_aop%Gets_data_AO(Df_Dr(:,:,1))
+         DS_Dr(:,:,1) = Smat
+      end if
 
 !     Backward displacement
 !     --------------------
@@ -101,11 +113,14 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
       do rr=1,natom
       do ss=1,3
-         grad(kk, 1, 3*(rr-1)+ss) = dxyzqm(ss,rr)
+         grad(kk, -1, 3*(rr-1)+ss) = dxyzqm(ss,rr)
       end do
       end do
 
-      if (armonic_calc == 2) call fock_aop%Gets_data_AO(Df_Dr(:,:,-1))
+      if (armonic_calc == 2) then
+         call fock_aop%Gets_data_AO(Df_Dr(:,:,-1))
+         DS_Dr(:,:,-1) = Smat
+      end if
 
       if(hess_norder == 2) then
 !        Forward 2x displacement
@@ -119,12 +134,14 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
          do rr=1,natom
          do ss=1,3
-            grad(kk, 1, 3*(rr-1)+ss) = dxyzqm(ss,rr)
+            grad(kk, 2, 3*(rr-1)+ss) = dxyzqm(ss,rr)
          end do
          end do
 
-         if (armonic_calc == 2) call fock_aop%Gets_data_AO(Df_Dr(:,:,2))
-
+         if (armonic_calc == 2) then
+            call fock_aop%Gets_data_AO(Df_Dr(:,:,2))
+            DS_Dr(:,:,2) = Smat
+         end if
 !        Backward 2x displacement
 !        ------------------------
          r_new = r_init
@@ -136,20 +153,27 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
          do rr=1,natom
          do ss=1,3
-            grad(kk, 1, 3*(rr-1)+ss) = dxyzqm(ss,rr)
+            grad(kk, -2, 3*(rr-1)+ss) = dxyzqm(ss,rr)
          end do
          end do
-         if (armonic_calc == 2) call fock_aop%Gets_data_AO(Df_Dr(:,:,-2))
-
+         if (armonic_calc == 2) then
+            call fock_aop%Gets_data_AO(Df_Dr(:,:,-2))
+            DS_Dr(:,:,-2) = Smat
+         end if
       endif
 
       if (armonic_calc == 2) then
          if (hess_norder == 2) then
-            Dfock_a(:,:,kk) = (8.0d0*Df_Dr(M,M,1) - 8.0d0*Df_Dr(M,M,-1) +      &
-                               Df_Dr(M,M,-2) - Df_Dr(M,M,2))                   &
+            Dfock_a(:,:,kk) = (8.0d0*Df_Dr(:,:,1) - 8.0d0*Df_Dr(:,:,-1) +      &
+                               Df_Dr(:,:,-2) - Df_Dr(:,:,2))                   &
+                              /(12.0d0 * dhau * mass_w(ii))
+            DS_mat(:,:,kk) = (8.0d0*DS_Dr(:,:,1) - 8.0d0*DS_Dr(:,:,-1) +      &
+                               DS_Dr(:,:,-2) - DS_Dr(:,:,2))                   &
                               /(12.0d0 * dhau * mass_w(ii))
          else
-            Dfock_a(:,:,kk) = (Df_Dr(M,M,1) - Df_Dr(M,M,-1))*0.5d0             &
+            Dfock_a(:,:,kk) = (Df_Dr(:,:,1) - Df_Dr(:,:,-1))*0.5d0             &
+                              /(dhau * mass_w(ii))
+            DS_mat(:,:,kk) = (DS_Dr(:,:,1) - DS_Dr(:,:,-1))*0.5d0             &
                               /(dhau * mass_w(ii))
          end if
       end if
@@ -158,18 +182,21 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
    end do
 
 !Construction and diagonalization of the hessian matrix
+   call build_hessian(natom, dhau, grad, hess_mat, mass_w)
+   call diagonalize_hessian(natom, hess_mat, armonic_freq, armonic_vec)
 
-call build_hessian(natom, dhau, grad, hess_mat, mass_w)
-call diagonalize_hessian(natom, hess_mat, armonic_freq, armonic_vec)
+!Freeing memory as this arrays are no more neccesary
 
-!charly: checking
-   ! write(777,*) "te cabieron las fuerzas?", delta_h
-   ! do ii = 1, natom
-   ! do jj =1, 3
-   !    kk=3*(ii-1)+jj
-   !    write(777,*)grad0(kk) , DEner(kk,0)
-   ! end do
-   ! end do
+   if (allocated(DS_Dr)) deallocate(DS_Dr)
+   if (allocated(Df_Dr)) deallocate(Df_Dr)
+   if (allocated(grad)) deallocate(grad)
+
+!Changing units and printing frequencies:
+
+   do ii = 1, 3*natom
+      freq(ii) = sign(1.0d0,armonic_freq(ii)) * freq2cm *                &
+                 sqrt(abs(armonic_freq(ii)))
+   end do
 
 end subroutine grad_calc
 
@@ -181,6 +208,7 @@ subroutine init_grad_calc(natom)
 
    implicit none
    integer, intent(in) :: natom
+   logical             :: file_exists
    integer             :: ii
 
 
@@ -195,16 +223,21 @@ subroutine init_grad_calc(natom)
 !carlos: the armonic.in file contains the mass information of each atom and also
 !        the boolean information to allow or not the movement of the atom. The
 !        mass is expresed in a.m.u.
-   open(unit=10101, file = 'armonic.in')
+
+   inquire(file='armonic.in', exist=file_exists)
+   if (file_exists) then
+      open(unit=10101, file = 'armonic.in')
+   else
+      write(*,*) "File 'armonic.in' not found"
+      write(*,*) "Closing program"
+      stop
+   end if
 
    do ii = 1, natom
       read(10101,*) atom_mass(ii), move_atom(ii)
    end do
 
    close(10101)
-
-!Converting the mass from amu to au
-   ! atom_mass = atom_mass / emass_d
 
 !Storing inverse square of the masses to weight the cartesian coordinates.
    do ii=1, natom
@@ -231,7 +264,7 @@ subroutine build_hessian(natom, dhau, grad, hess_mat, mass_w)
 
    if (hess_norder == 1) then
       kk = 1
-      jj = 1
+      ll = 1
       do ii=1, 3*natom
       do jj=ii, 3*natom
          tmp1 =0.0d0
@@ -251,8 +284,8 @@ subroutine build_hessian(natom, dhau, grad, hess_mat, mass_w)
       end do
          if (mod(ii,3) == 0) then
             kk = kk + 1
-            ll = kk
          end if
+         ll = kk
       end do
 
    else
@@ -278,9 +311,9 @@ subroutine build_hessian(natom, dhau, grad, hess_mat, mass_w)
          end if
          if (mod(jj,3) == 0) ll = ll + 1
       end do
+         ll  = kk
          if (mod(ii,3) == 0) then
             kk = kk + 1
-            ll = kk
          end if
       end do
 
@@ -305,8 +338,8 @@ subroutine diagonalize_hessian(natom, hess_mat, armonic_freq, armonic_vec)
    integer                      :: ncoords
 
    ncoords = 3*natom
-
-   armonic_vec = hess_mat
+!scaling
+   armonic_vec = hess_mat * 1000d0
 
    allocate ( WORK1(1000), IWORK1(1000) )
    LWORK=-1
@@ -318,11 +351,51 @@ subroutine diagonalize_hessian(natom, hess_mat, armonic_freq, armonic_vec)
    allocate (WORK2(LWORK),IWORK2(LIWORK))
    call dsyevd('V','U',ncoords,armonic_vec,ncoords,armonic_freq,WORK2,LWORK,   &
                IWORK2,LIWORK,INFO)
+!descaling
+   armonic_freq = armonic_freq/1000d0
+   armonic_vec  = armonic_vec/1000d0
 
    deallocate( WORK1, IWORK1, WORK2, IWORK2 )
 
 end subroutine diagonalize_hessian
 
 !###############################################################################
+!Invertion subroutine
+subroutine invert_mat(A, Ainv,M)
 
+  implicit none
+  integer, intent(in):: M
+  real*8, intent(in) :: A(M,M)
+  real*8, intent(inout) :: Ainv(M,M)
+
+  real*8, dimension(size(A,1)) :: work  ! work array for LAPACK
+  integer, dimension(size(A,1)) :: ipiv   ! pivot indices
+  integer :: n, info
+
+  ! External procedures defined in LAPACK
+  external DGETRF
+  external DGETRI
+
+  ! Store A in Ainv to prevent it from being overwritten by LAPACK
+  Ainv = A
+  n = size(A,1)
+
+  ! DGETRF computes an LU factorization of a general M-by-N matrix A
+  ! using partial pivoting with row interchanges.
+  call DGETRF(n, n, Ainv, n, ipiv, info)
+
+  if (info /= 0) then
+     stop 'Matrix is numerically singular!'
+  end if
+
+  ! DGETRI computes the inverse of a matrix using the LU factorization
+  ! computed by DGETRF.
+  call DGETRI(n, Ainv, n, ipiv, work, n, info)
+
+  if (info /= 0) then
+     stop 'Matrix inversion failed!'
+  end if
+end subroutine invert_mat
+
+!###############################################################################
 end module armonic_subs
