@@ -65,6 +65,8 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_x, cumat_r
    use faint_cpu       , only: int2
+   use radem_data      , only: radiative_calc
+   use radem_subs      , only: radi_emission_init
 
    implicit none
 !carlos: Operator inserted for TD
@@ -188,6 +190,10 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    else
       rho=rho_0
    end if
+!------------------------------------------------------------------------------!
+!Radiative Emission Initialize
+   call radi_emission_init(M_f, M, OPEN, r, d, natom, ntatom)
+
 !carlos: storing rho AO data in Operator
 
    call rho_aop%Sets_dataC_AO(rho(:,:,1))
@@ -571,6 +577,7 @@ end subroutine td_integral_1e
 subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    use typedef_cumat, only: cumat_r, cumat_x
    use tbdft_subs   , only: getXY_TBDFT
+   use radem_data   , only: radiative_calc, Ymat_radi
 
    implicit none
    integer      , intent(in)    :: M_f, M
@@ -647,6 +654,7 @@ subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    enddo
    enddo
    call Ymat%init(M_f, aux_mat)
+   if(radiative_calc) call Ymat_radi%init(M_f, aux_mat)
 
    deallocate(Y_mat, aux_mat, X_trans, X_mat)
 
@@ -872,6 +880,9 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    use tbdft_subs      , only: transport_TB
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_x
+   use radem_data      , only: radiative_calc
+   use radem_subs      , only: radi_fock_calculation
+
    implicit none
 
    logical       , intent(in)    :: OPEN
@@ -884,9 +895,12 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    type(operator), intent(inout) :: fock_aop, rho_aop
    type(operator), intent(inout), optional :: fock_bop, rho_bop
 
+   real(kind=8) , allocatable :: fock_aux(:,:)
    TDCOMPLEX,  allocatable :: rho(:,:,:), rho_aux(:,:,:)
 
    allocate(rho(M_f, M_f, dim3), rho_aux(M_f,M_f,dim3))
+
+   if (radiative_calc) allocate(fock_aux(M_f,M_f))
 
    call rho_aop%Gets_dataC_ON(rho(:,:,1))
    if (OPEN) call rho_bop%Gets_dataC_ON(rho(:,:,2))
@@ -924,6 +938,14 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
       rhonew = rhonew - rho_aux
    endif
 
+!Adding dissipation term:
+   if(radiative_calc) then
+      call fock_aop%Gets_data_AO(fock_aux)
+      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
+      call radi_fock_calculation(fock_aux, rho_aux(:,:,1), M, dim3)
+      rhonew = rhonew + rho_aux * dt_lpfrg
+   end if
+
    ! Density update (rhold-->rho, rho-->rhonew)
    rhold = rho
    rho   = rhonew
@@ -955,6 +977,9 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    use propagators     , only: predictor, magnus
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_r, cumat_x
+   use radem_data      , only: radiative_calc
+   use radem_subs      , only: radi_fock_calculation
+
    implicit none
 
 
@@ -1040,6 +1065,14 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
       write(*,*) 'Transport TB: Adding driving term to the density.'
       rhonew = rhonew - rho_aux
    endif
+
+!Adding dissipation term:
+   if(radiative_calc) then
+      call fock_aop%Gets_data_AO(fock_aux(:,:,1))
+      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
+      call radi_fock_calculation(fock_aux(:,:,1), rho_aux(:,:,1), M, dim3)
+      rhonew = rhonew + rho_aux * dt_magnus
+   end if
 
    ! TBDFT: rhonew in AO is store for charge calculations of TBDFT
    if (tbdft_calc == 1) then
