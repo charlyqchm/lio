@@ -29,6 +29,7 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
    real(kind=8), allocatable :: DS_mat(:,:,:)
    real(kind=8), allocatable :: hess_mat(:,:)
    real(kind=8), allocatable :: S_inv(:,:)
+   real(kind=8), allocatable :: fock0(:,:)
    integer                   :: ii, jj, kk, rr, ss
    real(kind=8)              :: freq(3*natom)
    ! real(kind=8), allocatable :: DEner(:,:) !TEMPORAL ARRAY FOR TESTS
@@ -46,7 +47,7 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
    allocate(dxyzqm(3, natom), hess_mat(3*natom, 3*natom))
 
    if (armonic_calc == 2) allocate(Dfock_a(M,M,3*natom),DS_mat(M,M,3*natom),   &
-                                   S_inv(M,M))
+                                   S_inv(M,M), fock0(M,M))
 
    if (hess_norder==1) then
       allocate (grad(3*natom,-1:1,3*natom))
@@ -65,8 +66,10 @@ subroutine grad_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
    call SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
    call dft_get_qm_forces(dxyzqm)
-   if (armonic_calc == 2) call invert_mat(Smat, S_inv, M)
-
+   if (armonic_calc == 2) then
+      call invert_mat(Smat, S_inv, M)
+      call fock_aop%Gets_data_AO(fock0)
+   end if
    do ii =1, natom
    do jj=1, 3
       grad0(3*(ii-1)+jj) = dxyzqm(jj,ii)
@@ -396,6 +399,65 @@ subroutine invert_mat(A, Ainv,M)
      stop 'Matrix inversion failed!'
   end if
 end subroutine invert_mat
+
+!###############################################################################
+
+subroutine build_elc_phon_coupling(natom, M, Dfock_a, DS_mat, S_inv, fock0,    &
+                                   armonic_vec, Nuc)
+   implicit none
+   integer     , intent(in)    :: natom
+   integer     , intent(in)    :: M
+   integer     , intent(in)    :: Nuc(M)
+   real(kind=8), intent(inout) :: Dfock_a(M,M, 3*natom)
+   real(kind=8), intent(in)    :: DS_mat(M,M, 3*natom)
+   real(kind=8), intent(in)    :: armonic_vec(3*natom,3*natom)
+   real(kind=8), intent(in)    :: S_inv(M,M)
+   real(kind=8), intent(in)    :: fock0(M,M)
+
+   integer      :: ii, jj, kk, ll, aa, rr
+   real(kind=8) :: Df_armonic(M,M, 3*natom)
+   real(kind=8) :: Df_coupling(M,M,3*natom)
+
+   Df_armonic  = 0.0d0
+   Df_coupling = 0.0d0
+
+   aa =1
+   do rr = 1, 3*natom
+   do jj = 1, M
+   do ii = 1, M
+!carlos: el segundo loop solo barrerlo si es necesario
+      Df_coupling(ii,jj,rr) = Dfock_a(ii,jj,rr)
+!we are assuming that dSij/Ra is equal to <i'|j> + <i|j'> = 0 =>
+! <i'|j> = - <i|j'> = 0
+      if (Nuc(ii) == aa .and. Nuc(jj) == aa ) then
+         do kk = 1, M
+         do ll = 1, M
+            Df_coupling(ii,jj,rr) = Df_coupling(ii,jj,rr) -                    &
+                                    DS_mat(ii,kk)*S_inv(kk,ll)*fock0(ll,jj) -  &
+                                    fock0(ii,kk)*S_inv(kk,ll)*DS_mat(ll,jj)
+         end do
+         end do
+      else if(Nuc(ii) == aa) then
+         do kk = 1, M
+         do ll = 1, M
+            Df_coupling(ii,jj,rr) = Df_coupling(ii,jj,rr) -                    &
+                                    DS_mat(ii,kk)*S_inv(kk,ll)*fock0(ll,jj)
+         end do
+         end do
+      else if(Nuc(jj) == aa) then
+         do kk = 1, M
+         do ll = 1, M
+            Df_coupling(ii,jj,rr) = Df_coupling(ii,jj,rr) -                    &
+                                    fock0(ii,kk)*S_inv(kk,ll)*DS_mat(ll,jj)
+         end do
+         end do
+      end if
+   end do
+   end do
+      if (mod(aa,3)) aa = aa + 1
+   end do
+
+end subroutine build_elc_phon_coupling()
 
 !###############################################################################
 end module armonic_subs
