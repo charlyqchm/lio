@@ -191,8 +191,6 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       rho=rho_0
    end if
 !------------------------------------------------------------------------------!
-!Radiative Emission Initialize
-   call radi_emission_init(M_f, M, OPEN, r, d, natom, ntatom)
 
 !carlos: storing rho AO data in Operator
 
@@ -217,6 +215,8 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
 
    ! Diagonalizes Smat and calculates the base change matrices (x,y,Xtrans)
    call td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
+!Radiative Emission Initialize
+   call radi_emission_init(M_f, M, OPEN, r, d, natom, ntatom)
 
    call rho_aop%BChange_AOtoON(Ymat, M_f)
    if (OPEN) call rho_bop%BChange_AOtoON(Ymat, M_f)
@@ -577,7 +577,7 @@ end subroutine td_integral_1e
 subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    use typedef_cumat, only: cumat_r, cumat_x
    use tbdft_subs   , only: getXY_TBDFT
-   use radem_data   , only: radiative_calc, Ymat_radi
+   use radem_data   , only: radiative_calc, Ymat_radi, Xmat_radi
 
    implicit none
    integer      , intent(in)    :: M_f, M
@@ -639,6 +639,7 @@ subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
 
    ! Stores transformation matrices.
    call Xmat%init(M_f, X_mat)
+   if(radiative_calc) call Xmat_radi%init(M_f, X_mat)
 
    allocate(aux_mat(M_f,M_f))
    do icount = 1, M_f
@@ -929,7 +930,12 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    call g2g_timer_start('commutator')
    call fock_aop%Commut_data_c(rho(:,:,1), rhonew(:,:,1), M_f)
    if (OPEN) call fock_bop%Commut_data_c(rho(:,:,2), rhonew(:,:,2), M_f)
-   rhonew = rhold - real(dt_lpfrg,COMPLEX_SIZE/2) * (Im * rhonew)
+
+   if (mod(istep,500)==0) then
+      rhonew = rho - 0.5d0 * real(dt_lpfrg,COMPLEX_SIZE/2) * (Im * rhonew)
+   else
+      rhonew = rhold - real(dt_lpfrg,COMPLEX_SIZE/2) * (Im * rhonew)
+   end if
    call g2g_timer_stop('commutator')
 
    !Transport: Add the driving term to the propagation.
@@ -940,10 +946,14 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
 
 !Adding dissipation term:
    if(radiative_calc) then
-      call fock_aop%Gets_data_AO(fock_aux)
-      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
-      call radi_fock_calculation(fock_aux, rho_aux(:,:,1), M, dim3)
-      rhonew = rhonew + rho_aux * dt_lpfrg
+      call fock_aop%Gets_data_ON(fock_aux)
+      call rho_aop%Gets_dataC_ON(rho_aux(:,:,1))
+      call radi_fock_calculation(fock_aux, rho_aux(:,:,1), M, dim3, istep)
+      if (mod(istep,500)==0) then
+         rhonew = rhonew + real(dt_lpfrg,COMPLEX_SIZE/2) * rho_aux
+      else
+         rhonew = rhonew + 2.0d0 * real(dt_lpfrg,COMPLEX_SIZE/2) * rho_aux
+      end if
    end if
 
    ! Density update (rhold-->rho, rho-->rhonew)
@@ -1070,7 +1080,7 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    if(radiative_calc) then
       call fock_aop%Gets_data_AO(fock_aux(:,:,1))
       call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
-      call radi_fock_calculation(fock_aux(:,:,1), rho_aux(:,:,1), M, dim3)
+      call radi_fock_calculation(fock_aux(:,:,1), rho_aux(:,:,1), M, dim3, istep)
       rhonew = rhonew + rho_aux * dt_magnus
    end if
 

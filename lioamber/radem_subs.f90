@@ -6,7 +6,7 @@ contains
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine radi_emission_init(M_in, M, open_shell, r, d, natom, ntatom)
    use radem_data, only: radiative_calc, dip_radi_op, ddip_radi_op,            &
-                         fock_radi_op, d2dip_radi
+                         fock_radi_op, d2dip_radi, Xmat_radi, k_radi
    use faint_cpu , only: intfld
 
    implicit none
@@ -27,6 +27,10 @@ subroutine radi_emission_init(M_in, M, open_shell, r, d, natom, ntatom)
 
    MM = M*(M+1)/2
 
+   open(unit=2002, file="accelerator.in")
+   read(2002,*) k_radi
+   close(2002)
+
    allocate(dip_radi_op(3),dip_array(MM), dip_mat_aux(M, M))
 
    if (.not.open_shell) then
@@ -45,19 +49,22 @@ subroutine radi_emission_init(M_in, M, open_shell, r, d, natom, ntatom)
       call spunpack('L', M, dip_array, dip_mat_aux)
 !carlols: dip_mat is stored as the orthonormal part of the operator to be used
 !         with commutator later.
-      call dip_radi_op(ii)%Sets_data_ON(dip_mat_aux)
+      call dip_radi_op(ii)%Sets_data_AO(dip_mat_aux)
+      call dip_radi_op(ii)%BChange_AOtoON(Xmat_radi, M_in)
+
    end do
 
 end subroutine radi_emission_init
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
-subroutine radi_fock_calculation(fock, rho_aux, M, dim3)
+subroutine radi_fock_calculation(fock, rho_aux, M, dim3, t_step)
    use radem_data, only: radiative_calc, dip_radi_op, ddip_radi_op,            &
-                         d2dip_radi, preA_radi, fock_radi_op, Ymat_radi
+                         d2dip_radi, preA_radi, fock_radi_op, Ymat_radi, k_radi
    implicit none
 
    integer     , intent(in)    :: M
    integer     , intent(in)    :: dim3
+   integer     , intent(in)    :: t_step
    real(kind=8), intent(in)    :: fock(M,M)
    TDCOMPLEX   , intent(inout) :: rho_aux(M,M)
    integer                     :: ii, jj, kk
@@ -70,28 +77,31 @@ subroutine radi_fock_calculation(fock, rho_aux, M, dim3)
    if (.not.radiative_calc) return
 
    aux_mat3 = 0.0d0
+   aux_mat4 = 0.0d0
 
-   do ii=1,3
-      call dip_radi_op(ii)%Commut_data_r(fock, aux_mat1, M)
-      call ddip_radi_op(ii,dim3)%Sets_data_ON(aux_mat1)
-      call ddip_radi_op(ii,dim3)%Commut_data_r(fock, aux_mat2, M)
-      d2dip_radi(ii,dim3) = 0.0d0
-      do jj=1, M
-      do kk=1, M
-         aux1 = dble(rho_aux(jj,kk)*aux_mat2(kk,jj))
-         d2dip_radi(ii,dim3) = d2dip_radi(ii,dim3) - aux1
+   if (t_step > 5000) then
+      do ii=1,3
+         call dip_radi_op(ii)%Commut_data_r(fock, aux_mat1, M)
+         call ddip_radi_op(ii,dim3)%Sets_data_ON(aux_mat1)
+         call ddip_radi_op(ii,dim3)%Commut_data_r(fock, aux_mat2, M)
+         d2dip_radi(ii,dim3) = 0.0d0
+         do jj=1, M
+         do kk=1, M
+            aux1 = dble(rho_aux(jj,kk)*aux_mat2(kk,jj))
+            d2dip_radi(ii,dim3) = d2dip_radi(ii,dim3) - aux1
+         end do
+         end do
+
+         aux_mat3 = aux_mat3 + k_radi * preA_radi * d2dip_radi(ii,dim3) * aux_mat1
       end do
-      end do
 
-      aux_mat3 = aux_mat3 - preA_radi * d2dip_radi(ii,dim3) * aux_mat1
-   end do
+      call fock_radi_op(dim3)%Sets_data_ON(aux_mat3)
+      call fock_radi_op(dim3)%Commut_data_c(rho_aux, aux_mat4, M)
 
-   call fock_radi_op(dim3)%Sets_data_ON(aux_mat3)
-   call fock_radi_op(dim3)%Commut_data_c(rho_aux, aux_mat4, M)
+   end if
 
    rho_aux = aux_mat4
 
-   call Ymat_radi%change_base(rho_aux, 'dir')
 
 end subroutine radi_fock_calculation
 
