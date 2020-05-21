@@ -56,9 +56,10 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
    use fileio_data  , only: verbose
    use basis_data   , only: kkinds, kkind, cools, cool, Nuc, nshell, M, MM, c_raw
    use basis_subs, only: neighbour_list_2e
-   use excited_data, only: libint_recalc
+   use excited_data, only: libint_recalc, pack_dens_exc
    use excitedsubs, only: ExcProp
    use dftd3, only: dftd3_energy
+   use radem_data, only: radiative_calc, coef_r, coefT_r, cinv_r, cinvT_r
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
@@ -814,6 +815,27 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
 
 !  Excited States routines
    call ExcProp(MO_coef_at,MO_coef_at_b,Eorbs,Eorbs_b,E)
+!charly: esto esta cochino
+    if (radiative_calc) then
+       Pmat_vec=pack_dens_exc
+    end if
+!charly excitaciones a manopla:
+!   allocate(coef_r(M,M), coefT_r(M,M), cinv_r(M,M), cinvT_r(M,M))
+!   coef_r = MO_coef_at
+!   coefT_r = transpose(coef_r)
+!   call invert(coef_r, cinv_r, M)
+!   call invert(coefT_r, cinvT_r, M)
+!   call rho_aop%Gets_data_AO(rho_a)
+!   rho_a = matmul(rho_a,cinvT_r)
+!   rho_a = matmul(cinv_r,rho_a)
+!   rho_a(4,4) = rho_a(4,4) - 1.0d0
+!   rho_a(5,5) = rho_a(5,5) + 1.0d0
+
+!   rho_a = matmul(rho_a,coefT_r)
+!   rho_a = matmul(coef_r,rho_a)
+
+!   call messup_densmat( rho_a )
+!   call sprepack('L', M, Pmat_vec, rho_a)
 
 !------------------------------------------------------------------------------!
 ! TODO: have ehrendyn call SCF and have SCF always save the resulting rho in
@@ -851,4 +873,31 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
       call g2g_timer_sum_stop('SCF')
       call g2g_timer_stop('SCF_full')
       end subroutine SCF
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+!carlos: invertion subroutine
+subroutine invert(A, Ainv,M)
+  real*8, intent(in) :: A(M,M)
+  real*8, intent(inout) :: Ainv(M,M)
+  real*8, dimension(size(A,1)) :: work  ! work array for LAPACK
+  integer, dimension(size(A,1)) :: ipiv   ! pivot indices
+  integer :: n, info
+  ! External procedures defined in LAPACK
+  external DGETRF
+  external DGETRI
+  ! Store A in Ainv to prevent it from being overwritten by LAPACK
+  Ainv = A
+  n = size(A,1)
+  ! DGETRF computes an LU factorization of a general M-by-N matrix A
+  ! using partial pivoting with row interchanges.
+  call DGETRF(n, n, Ainv, n, ipiv, info)
+  if (info /= 0) then
+     stop 'Matrix is numerically singular!'
+  end if
+  ! DGETRI computes the inverse of a matrix using the LU factorization
+  ! computed by DGETRF.
+  call DGETRI(n, Ainv, n, ipiv, work, n, info)
+  if (info /= 0) then
+     stop 'Matrix inversion failed!'
+  end if
+end subroutine invert
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!

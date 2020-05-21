@@ -158,7 +158,7 @@ tmplist += TD.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/radem_subs.mod
 
 tmplist :=
-tmplist += TD.o radem_subs.o
+tmplist += SCF.o TD.o radem_subs.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/radem_data.mod
 ################################################################################
 include converger_subs/conver.mk
