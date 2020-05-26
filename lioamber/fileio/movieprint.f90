@@ -17,6 +17,8 @@ subroutine movieprint( natoms, mbasis, nstep, nucids, nucpos, elecdens )
    integer           :: ndig1, ndig2, ndig3, ndig4
    character(len=1)  :: cdig1, cdig2, cdig3, cdig4
 
+   print*, "Estoy adentro"
+
    if ( movie_nfreq == 0 ) return
    if ( mod(nstep,movie_nfreq) /= 0 ) return
 

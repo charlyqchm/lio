@@ -65,6 +65,8 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_x, cumat_r
    use faint_cpu       , only: int2
+   use radem_data      , only: radiative_calc, F1a_radi, F1b_radi, fock_radi_op
+   use radem_subs      , only: radi_emission_init
 
    implicit none
 !carlos: Operator inserted for TD
@@ -72,7 +74,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    type(operator), intent(inout), optional :: rho_bop, fock_bop
 
    real*8  :: E, En, E1, E2, E1s, Eexact, Es, Ens = 0.0D0, Ex, t, dt_magnus, dt_lpfrg
-   integer :: M2, igpu, istep
+   integer :: M2, igpu, istep,ii
    integer :: lpfrg_steps = 200, chkpntF1a = 185, chkpntF1b = 195
    logical :: is_lpfrg = .false. , fock_restart = .false.
    character(len=20) :: restart_filename
@@ -92,6 +94,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    TDCOMPLEX :: liocmplx
    TDCOMPLEX, allocatable, dimension(:,:,:) :: rho, rho_aux, rhonew, rhold
    TDCOMPLEX, allocatable, dimension(:,:,:) :: rho_0
+   TDCOMPLEX, allocatable                   :: fock_z(:,:,:)
 
    type(cumat_r) :: Xmat
    type(cumat_x) :: Xtrans, Ymat
@@ -131,7 +134,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    ! Checks and performs allocations.
    call td_allocate_all(M_f, M, dim3, NBCH, propagator, F1a, F1b, fock, rho,   &
                         rho_aux, rhold, rhonew, rho_0, fock_0, sqsm, factorial,&
-                        Smat_initial)
+                        Smat_initial, fock_z, radiative_calc)
 
    ! Initialises propagator-related parameters and other variables.
    call td_initialise(propagator, tdstep, NBCH, dt_lpfrg, dt_magnus, factorial)
@@ -192,6 +195,12 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
 
    call rho_aop%Sets_dataC_AO(rho(:,:,1))
    if (OPEN) call rho_bop%Sets_dataC_AO(rho(:,:,2))
+
+!------------------------------------------------------------------------------!
+!RADEM: Initialize the variable needed for radiative emission
+
+   call radi_emission_init(M_f, M, OPEN, propagator, r, d, natom, ntatom)
+
 !------------------------------------------------------------------------------!
 
    ! Proper TD calculation start.
@@ -271,10 +280,10 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
 
       if (is_lpfrg) then
          call td_bc_fock(M_f, M, Fmat_vec, fock_aop, Xmat, istep, &
-                         t/0.024190D0)
+                         t/0.024190D0, dim3, rho_aop)
          if (OPEN) then
             call td_bc_fock(M_f, M, Fmat_vec2, fock_bop, Xmat, istep, &
-                            t/0.024190D0)
+                            t/0.024190D0, dim3, rho_bop)
             call td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, &
                            rhonew, istep, Im, dt_lpfrg, transport_calc,  &
                            natom, Nuc, Iz, overlap, sqsm, Ymat, Xtrans,  &
@@ -286,10 +295,17 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
          end if
 
          if (propagator == 2) then
-            call fock_aop%Gets_data_ON(fock(:,:,1))
-            if (OPEN) call fock_bop%Gets_data_ON(fock(:,:,2))
-            if (istep == chkpntF1a) F1a = fock
-            if (istep == chkpntF1b) F1b = fock
+            if (radiative_calc) then
+               call fock_radi_op(1)%Gets_dataC_ON(fock_z(:,:,1))
+               if (OPEN) call fock_radi_op(2)%Gets_dataC_ON(fock_z(:,:,2))
+               if (istep == chkpntF1a) F1a_radi = fock_z
+               if (istep == chkpntF1b) F1b_radi = fock_z
+            else
+               call fock_aop%Gets_data_ON(fock(:,:,1))
+               if (OPEN) call fock_bop%Gets_data_ON(fock(:,:,2))
+               if (istep == chkpntF1a) F1a = fock
+               if (istep == chkpntF1b) F1b = fock
+            end if
          endif
       else
          if(OPEN) then
@@ -417,15 +433,16 @@ end subroutine TD
 
 subroutine td_allocate_all(M_f,M, dim3, NBCH, propagator, F1a, F1b, fock,   &
                            rho, rho_aux, rhold, rhonew, rho_0, fock_0,sqsm, &
-                           factorial, Smat_initial)
+                           factorial, Smat_initial, fock_z, radiative_calc)
    implicit none
+   logical, intent(in) :: radiative_calc
    integer, intent(in) :: M, NBCH, propagator, M_f, dim3
    real*8, allocatable, intent(inout) :: F1a(:,:,:), F1b(:,:,:), fock(:,:,:), &
                                          sqsm(:,:), factorial(:),             &
                                          fock_0(:,:,:), Smat_initial(:,:)
    TDCOMPLEX, allocatable, intent(inout) :: rho(:,:,:), rho_aux(:,:,:),      &
                                             rhold(:,:,:), rhonew(:,:,:),     &
-                                            rho_0(:,:,:)
+                                            rho_0(:,:,:), fock_z(:,:,:)
 
    if ( allocated(fock)        ) deallocate(fock)
    if ( allocated(rho)         ) deallocate(rho)
@@ -437,12 +454,15 @@ subroutine td_allocate_all(M_f,M, dim3, NBCH, propagator, F1a, F1b, fock,   &
    if ( allocated(fock_0)      ) deallocate(fock_0)
    if ( allocated(rho_0)       ) deallocate(rho_0)
    if ( allocated(Smat_initial)) deallocate(Smat_initial)
+   if ( allocated(fock_z)      ) deallocate(fock_z)
 
    allocate(sqsm(M,M), factorial(NBCH), Smat_initial(M,M))
 
    allocate(fock(M_f,M_f,dim3) , rho(M_f,M_f,dim3)   , rho_aux(M_f,M_f,dim3), &
             rhold(M_f,M_f,dim3), rhonew(M_f,M_f,dim3), fock_0(M,M,dim3)     , &
             rho_0(M,M,dim3))
+
+   if (radiative_calc) allocate(fock_z(M_f,M_f,dim3))
 
    if (propagator == 2) then
       if ( allocated(F1a) ) deallocate(F1a)
@@ -571,6 +591,7 @@ end subroutine td_integral_1e
 subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    use typedef_cumat, only: cumat_r, cumat_x
    use tbdft_subs   , only: getXY_TBDFT
+   use radem_data   , only: radiative_calc, Xmat_radi
 
    implicit none
    integer      , intent(in)    :: M_f, M
@@ -634,6 +655,11 @@ subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    call Xmat%init(M_f, X_mat)
 
    allocate(aux_mat(M_f,M_f))
+   if (radiative_calc) then
+      aux_mat = X_mat
+      call Xmat_radi%init(M_f, aux_mat)
+   end if
+
    do icount = 1, M_f
    do jcount = 1, M_f
       aux_mat(icount,jcount) = liocmplx(X_trans(icount,jcount), 0.0D0)
@@ -720,7 +746,6 @@ subroutine td_calc_energy(E, E1, E2, En, Ex, Es, Ehf, MM, Pmat, Fmat, Fmat2, &
                           d, natom, ntatom, MEMO)
    use faint_cpu , only: int3lu
    use field_subs, only: field_calc
-   use propagators,only: do_TDexactExchange
    implicit none
    integer, intent(in)    :: MM, natom, ntatom, M
    logical, intent(in)    :: is_lpfrg
@@ -827,37 +852,52 @@ subroutine td_population(M, natom, rho, Smat_init, Nuc, Iz, open_shell, &
    return
 end subroutine td_population
 
-subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time)
+subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time, dim3, rho_op)
    use tbdft_data      , only: tbdft_calc, MTB
    use tbdft_subs      , only: chimeraTBDFT_evol
    use fockbias_subs   , only: fockbias_apply
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_r
+   use radem_data      , only: radiative_calc, fock_radi_op, Xmat_radi
+   use radem_subs      , only: radi_fock_calculation
 
    implicit none
-   integer       , intent(in)    :: M, M_f, istep
+   integer       , intent(in)    :: M, M_f, istep, dim3
    real(kind=8)  , intent(in)    :: time
    type(cumat_r) , intent(in)    :: Xmat
    real(kind=8)  , intent(inout) :: Fmat(:)
+   type(operator), intent(in)    :: rho_op
    type(operator), intent(inout) :: fock_op
 
-   real(kind=8), allocatable :: fock_0(:,:), fock(:,:)
+   TDCOMPLEX,    allocatable     :: fock_z(:,:), rho(:,:)
+   real(kind=8), allocatable     :: fock_0(:,:), fock(:,:)
+
 
    allocate(fock_0(M,M), fock(M_f,M_f))
+   if (radiative_calc) allocate(fock_z(M_f,M_f), rho(M_f, M_f))
 
    call g2g_timer_start('fock')
    call spunpack('L', M, Fmat, fock_0)
+   call fockbias_apply(time, fock_0)
 
    if (tbdft_calc /= 0) then
       call chimeraTBDFT_evol(M, fock_0, fock, istep)
    else
       fock = fock_0
    endif
-   call fockbias_apply(time, fock)
 
-   call fock_op%Sets_data_AO(fock)
-   call fock_op%BChange_AOtoON(Xmat, M_f)
-   call fock_op%Gets_data_ON(fock)
+   if (radiative_calc) then
+      call rho_op%Gets_dataC_AO(rho)
+      call radi_fock_calculation(fock, fock_z, rho, M_f, M, MTB, dim3)
+      call fock_radi_op(dim3)%Sets_dataC_AO(fock_z)
+      call fock_radi_op(dim3)%BChange_AOtoON(Xmat_radi, M_f)
+      deallocate(fock_z)
+   else
+      call fock_op%Sets_data_AO(fock)
+      call fock_op%BChange_AOtoON(Xmat, M_f)
+      call fock_op%Gets_data_ON(fock)
+   endif
+
    call sprepack('L', M, Fmat, fock(MTB+1:MTB+M,MTB+1:MTB+M))
    call g2g_timer_stop('fock')
 
@@ -872,6 +912,8 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    use tbdft_subs      , only: transport_TB
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_x
+   use radem_data      , only: radiative_calc, fock_radi_op
+
    implicit none
 
    logical       , intent(in)    :: OPEN
@@ -893,8 +935,14 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
 
    if (istep == 1) then
       call g2g_timer_start('cuconmut')
-      call fock_aop%Commut_data_c(rho(:,:,1), rhold(:,:,1), M_f)
-      if (OPEN) call fock_bop%Commut_data_c(rho(:,:,2), rhold(:,:,2), M_f)
+      if (radiative_calc) then
+         call fock_radi_op(1)%Commut_data_c(rho(:,:,1), rhold(:,:,1), M_f)
+         if (OPEN) call fock_radi_op(2)%Commut_data_c(rho(:,:,2),              &
+                                                      rhold(:,:,2), M_f)
+      else
+         call fock_aop%Commut_data_r(rho(:,:,1), rhold(:,:,1), M_f)
+         if (OPEN) call fock_bop%Commut_data_r(rho(:,:,2), rhold(:,:,2), M_f)
+      end if
       call g2g_timer_stop('cuconmut')
       rhold = rho + real(dt_lpfrg,COMPLEX_SIZE/2) * (Im * rhold)
    endif
@@ -913,8 +961,14 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    end if
 
    call g2g_timer_start('commutator')
-   call fock_aop%Commut_data_c(rho(:,:,1), rhonew(:,:,1), M_f)
-   if (OPEN) call fock_bop%Commut_data_c(rho(:,:,2), rhonew(:,:,2), M_f)
+   if (radiative_calc) then
+      call fock_radi_op(1)%Commut_data_c(rho(:,:,1), rhonew(:,:,1), M_f)
+      if (OPEN) call fock_radi_op(2)%Commut_data_c(rho(:,:,2), rhonew(:,:,2), &
+                                                   M_f)
+   else
+      call fock_aop%Commut_data_r(rho(:,:,1), rhonew(:,:,1), M_f)
+      if (OPEN) call fock_bop%Commut_data_r(rho(:,:,2), rhonew(:,:,2), M_f)
+   end if
    rhonew = rhold - real(dt_lpfrg,COMPLEX_SIZE/2) * (Im * rhonew)
    call g2g_timer_stop('commutator')
 
@@ -952,9 +1006,11 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    use transport_subs  , only: transport_propagate
    use tbdft_data      , only: tbdft_calc, MTB, rhold_AOTB, rhonew_AOTB
    use tbdft_subs      , only: chimeraTBDFT_evol, transport_TB
-   use propagators     , only: predictor, magnus
+   use propagator      , only: predictor, magnus
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_r, cumat_x
+   use radem_data      , only: radiative_calc, F1a_radi, F1b_radi,           &
+                               fock_radi_op, Xmat_radi
    implicit none
 
 
@@ -969,26 +1025,32 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    real*8   , intent(in)      :: dt_magnus, factorial(NBCH), time
    real*8   , intent(inout)   :: F1a(M_f,M_f, dim3), F1b(M_f,M_f, dim3),   &
                                  overlap(:,:), sqsm(M,M)
-   TDCOMPLEX, intent(inout)  :: rhonew(M_f,M_f,dim3)
+   TDCOMPLEX, intent(inout)   :: rhonew(M_f,M_f,dim3)
    TDCOMPLEX, allocatable     :: rho(:,:,:), rho_aux(:,:,:)
    real*8, allocatable        :: fock_aux(:,:,:), fock(:,:,:)
+   TDCOMPLEX, allocatable     :: fock_z(:,:,:)
 
    allocate(rho(M_f,M_f,dim3), rho_aux(M_f,M_f,dim3),                      &
             fock_aux(M_f,M_f, dim3), fock(M_f, M_f, dim3))
 
-   call fock_aop%Gets_data_ON(fock(:,:,1))
+   if (radiative_calc) then
+      allocate(fock_z(M_f, M_f, dim3))
+      fock_aux = 0.0d0
+      fock     = 0.0d0
+   end if
    call rho_aop%Gets_dataC_ON(rho(:,:,1))
+   if (OPEN) call rho_bop%Gets_dataC_ON(rho(:,:,2))
 
-   if (OPEN) then
-      call fock_bop%Gets_data_ON(fock(:,:,2))
-      call rho_bop%Gets_dataC_ON(rho(:,:,2))
+   if (.not.radiative_calc) then
+      call fock_aop%Gets_data_ON(fock(:,:,1))
+      if (OPEN) call fock_bop%Gets_data_ON(fock(:,:,2))
    end if
 
    if (transport_calc) then
       call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
       if (OPEN) call rho_bop%Gets_dataC_AO(rho_aux(:,:,2))
       call transport_propagate(M, dim3, natom, Nuc, Iz, 2, istep, overlap,     &
-                               sqsm, rho_aux(:,:,1), Ymat, OPEN)
+                               sqsm, rho_aux, Ymat, OPEN)
    endif
 
 ! TBDFT: this if is temporary, it is to conserve the atomic part of TBDFT in
@@ -1007,7 +1069,11 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
          if (OPEN) call Xtrans%change_base(rhold_AOTB(:,:,2), 'dir')
       end if
 
-      fock = fock_aux
+      if (radiative_calc) then
+         fock_z = fock_aux
+      else
+         fock = fock_aux
+      end if
    endif
 
 !DLVN_TBDFT: calculating the drving term
@@ -1017,17 +1083,28 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
       call transport_TB(M, dim3, rho_aux, Ymat, istep, OPEN, rho_aop, rho_bop)
    end if
 
-
    call g2g_timer_start('predictor')
-   call predictor(F1a, F1b, fock, rho, factorial, Xmat, Xtrans, dt_magnus, &
+   if (radiative_calc) then
+      call predictor(F1a_radi, F1b_radi, fock_z, rho, factorial, Xmat_radi,    &
+                     Xtrans, dt_magnus, time, M_f, MTB, dim3)
+      call g2g_timer_stop('predictor')
+      call g2g_timer_start('magnus')
+      call magnus(fock_z(:,:,1), rho(:,:,1), rhonew(:,:,1), M_f, NBCH,         &
+                  dt_magnus, factorial)
+      if (OPEN) call magnus(fock_z(:,:,2), rho(:,:,2), rhonew(:,:,2), M_f,     &
+                            NBCH, dt_magnus, factorial)
+      call g2g_timer_stop('magnus')
+   else
+      call predictor(F1a, F1b, fock, rho, factorial, Xmat, Xtrans, dt_magnus, &
                   time, M_f, MTB, dim3)
-   call g2g_timer_stop('predictor')
-   call g2g_timer_start('magnus')
-   call magnus(fock(:,:,1), rho(:,:,1), rhonew(:,:,1), M_f, NBCH, dt_magnus,  &
-               factorial)
-   if (OPEN) call magnus(fock(:,:,2), rho(:,:,2), rhonew(:,:,2), M_f, NBCH,   &
-                         dt_magnus, factorial)
-   call g2g_timer_stop('magnus')
+      call g2g_timer_stop('predictor')
+      call g2g_timer_start('magnus')
+      call magnus(fock(:,:,1), rho(:,:,1), rhonew(:,:,1), M_f, NBCH, dt_magnus,  &
+                  factorial)
+      if (OPEN) call magnus(fock(:,:,2), rho(:,:,2), rhonew(:,:,2), M_f, NBCH,   &
+                            dt_magnus, factorial)
+      call g2g_timer_stop('magnus')
+   end if
 
    ! Transport: Add the driving term to the propagation.
    if (transport_calc) then
@@ -1049,17 +1126,21 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    endif
 
    ! Density update and Fock storage.
-   F1a = F1b
-   F1b = fock
-   rho = rhonew
-   call fock_aop%Sets_data_ON(fock(:,:,1))
-   call rho_aop%Sets_dataC_ON(rho(:,:,1))
-
-   if (OPEN) then
-      call fock_bop%Sets_data_ON(fock(:,:,2))
-      call rho_bop%Sets_dataC_ON(rho(:,:,2))
+   if (radiative_calc) then
+      F1a_radi = F1b_radi
+      F1b_radi = fock_z
+      call fock_radi_op(1)%Sets_data_ON(fock(:,:,1))
+      if(OPEN) call fock_radi_op(2)%Sets_data_ON(fock(:,:,2))
+   else
+      F1a = F1b
+      F1b = fock
+      call fock_aop%Sets_data_ON(fock(:,:,1))
+      if(OPEN) call fock_bop%Sets_data_ON(fock(:,:,2))
    end if
 
+   rho = rhonew
+   call rho_aop%Sets_dataC_ON(rho(:,:,1))
+   if (OPEN) call rho_bop%Sets_dataC_ON(rho(:,:,2))
    return
 end subroutine td_magnus
 

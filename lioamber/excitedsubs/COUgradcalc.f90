@@ -2,11 +2,13 @@ subroutine COUgradcalc(rhoExc,rhoDif,Xmat,for,M,natom)
 use garcha_mod, only: Ginv_vec
 use excited_data, only: pack_dens_exc
 use basis_data, only: Md
+use SCF_aux   , only: messup_densmat
    implicit none
 
    integer, intent(in) :: M, natom
    double precision, intent(in) :: rhoExc(M,M), rhoDif(M,M), Xmat(M,M)
    double precision, intent(out):: for(natom,3)
+   double precision             :: rho_aux(M,M)
 
    integer :: ii, jj, ind, MM, MMd
    double precision, allocatable :: af_Exc(:), af_Dif(:), af_X(:)

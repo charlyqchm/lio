@@ -65,8 +65,9 @@ module lionml_data
                                  w_rho_zmax, w_rho_dx,  w_rho_dy, w_rho_dz,    &
                                  w_rho_rmin, w_rho_rmax, w_rho_dr,             &
                                  w_rho_dtheta, w_rho_dphi, write1Drho
+   use radem_data        , only: radiative_calc
 
-   
+
    implicit none
 
 !  Namelist definition
@@ -144,8 +145,9 @@ module lionml_data
                   ! Dispersion corrections.
                   dftd3,                                                       &
                   ! PBE0 functional
-                  PBE0
-
+                  PBE0,                                                        &
+                  ! Radiative Emission calculation
+                  radiative_calc
    type lio_input_data
       ! COMMON
       double precision :: etold, gold, good_cut, rmax, rmaxs, told, DIIS_bias, &
@@ -215,6 +217,8 @@ module lionml_data
       logical          :: dos_calc, pdos_calc, pdos_allb
       ! DFTD3
       logical          :: dftd3
+      !Radiative Emission Calculation
+      logical          :: radiative_calc
    end type lio_input_data
 contains
 
@@ -327,9 +331,11 @@ subroutine get_namelist(lio_in)
    lio_in%dos_calc = dos_calc
    lio_in%pdos_calc= pdos_calc
    lio_in%pdos_allb= pdos_allb
-   
+
    ! Dispersion corrections
    lio_in%dftd3 = dftd3
+   ! Radiative Emission Calculation
+   lio_in%radiative_calc = radiative_calc
    ! Libxc configuration
    !lio_in%ex_functional_id = ex_functional_id
    !lio_in%ec_functional_id = ec_functional_id

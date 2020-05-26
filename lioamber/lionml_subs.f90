@@ -206,6 +206,8 @@ subroutine lionml_write_dull()
    write(*,8201) inputs%dos_calc, inputs%pdos_calc, inputs%pdos_allb
    write(*,9000) " ! -- VdW interaction options: -- !"
    write(*,8220) inputs%dftd3
+   write(*,9000) " ! -- Radiative Emission Calculation -- !"
+   write(*,8230) inputs%radiative_calc
 
 ! General
 9000 FORMAT(A)
@@ -307,6 +309,8 @@ subroutine lionml_write_dull()
 8201 FORMAT(2x, "dos_calc = ", L2, ", pdos_calc = ", L2,", pdos_allb = ", L2 )
 ! VdW
 8220 FORMAT(2x, "dftd3 = ", L2)
+!Radiative Emission Calculation
+8230 FORMAT(2x, "radiative_calc = ", L2)
    return
 end subroutine lionml_write_dull
 
@@ -333,7 +337,7 @@ subroutine lionml_write_style()
    write(*,8214) inputs%hybrid_converg; write(*,8215) inputs%good_cut
    write(*,8216) inputs%Rmax          ; write(*,8217) inputs%RmaxS
    write(*,8218) inputs%Iexch         ; write(*,8219) inputs%Igrid
-   write(*,8220) inputs%Igrid2        ; 
+   write(*,8220) inputs%Igrid2        ;
    write(*,8222) inputs%initial_guess ; write(*,8223) inputs%dbug
    write(*,8224) inputs%n_ghosts
    write(*,8003)
@@ -449,7 +453,10 @@ subroutine lionml_write_style()
    write(*,8601) inputs%pdos_calc
    write(*,8602) inputs%pdos_allb
    write(*,8003)
-
+   !Radiative Emission Calculation
+   write(*,8000); write(*,8112); write(*,8002)
+   write(*,8610) inputs%radiative_calc
+   write(*,8003)
 
    return;
 8000 FORMAT(4x,"╔═════════════════════════════════", &
@@ -468,10 +475,11 @@ subroutine lionml_write_style()
 8105 FORMAT(4x,"║            Minimization and Restraints           ║")
 8106 FORMAT(4x,"║                     CubeGen                      ║")
 8107 FORMAT(4x,"║                   GPU Options                    ║")
-8108 FORMAT(4x,"║                Transport and TBDFT                ║")
+8108 FORMAT(4x,"║                Transport and TBDFT               ║")
 8109 FORMAT(4x,"║                Ehrenfest Dynamics                ║")
 8110 FORMAT(4x,"║               Fock Bias Potentials               ║")
 8111 FORMAT(4x,"║                     DOS-PDOS                     ║")
+8112 FORMAT(4x,"║           Radiative Emission Calculation         ║")
 
 !System and Theory Level
 8200 FORMAT(4x,"║  Natom               ║  ",17x,I6,2x,"║")
@@ -629,6 +637,8 @@ subroutine lionml_write_style()
 8600 FORMAT(4x,"║  dos_calc            ║  ",21x,L2,2x,"║")
 8601 FORMAT(4x,"║  pdos_calc           ║  ",21x,L2,2x,"║")
 8602 FORMAT(4x,"║  pdos_allb           ║  ",21x,L2,2x,"║")
+8610 FORMAT(4x,"║  radiative_calc      ║  ",21x,L2,2x,"║")
+
 end subroutine lionml_write_style
 
 subroutine write_Zlist_ECP_dull(ZlistECP, D)

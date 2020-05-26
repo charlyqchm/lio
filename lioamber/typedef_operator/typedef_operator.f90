@@ -17,8 +17,14 @@ module typedef_operator
      procedure, pass :: Gets_dataC_ON
      procedure, pass :: Diagon_datamat
      procedure, pass :: Dens_build
-     procedure, pass :: Commut_data_r
-     procedure, pass :: Commut_data_c
+     procedure, pass :: Commut_data_rr
+     procedure, pass :: Commut_data_rc
+     procedure, pass :: Commut_data_cr
+     procedure, pass :: Commut_data_cc
+     generic         :: Commut_data_r   => Commut_data_rr
+     generic         :: Commut_data_r   => Commut_data_rc
+     generic         :: Commut_data_c   => Commut_data_cr
+     generic         :: Commut_data_c   => Commut_data_cc
      procedure, pass :: Shift_diag_ON
      procedure, pass :: Shift_diag_AO
      procedure, pass :: BChange_AOtoON_r

@@ -3,6 +3,9 @@
 
 all: liosolo liblio g2g tools
 
+again:
+	make cuda=2 sm61=1 intel=0 precision=1 libxc=2 libint=1
+
 .PHONY: liosolo
 liosolo: liblio
 	$(MAKE) -C liosolo
