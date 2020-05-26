@@ -53,7 +53,7 @@ OBJECTS += convert_types.o
 # GENERIC DEPENDENCIES
 TD.o : properties.o
 
-tmplist := 
+tmplist :=
 tmplist += packed_storage.o propagators.o tbdft_subs.o TD.o liosubs_math.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : convert_types.o
 
@@ -124,7 +124,7 @@ $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/tbdft_subs.mod
 
 tmplist :=
 tmplist += SCF.o tbdft_subs.o input_read.o lionml_data.o, drive.o
-tmplist += drive.o init_lio.o liomain.o
+tmplist += drive.o init_lio.o liomain.o dos_subs.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/tbdft_data.mod
 
 tmplist :=
@@ -196,7 +196,7 @@ $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/transport.mod
 OBJECTS += TD.o
 
 tmplist :=
-tmplist += input_read.o init_lio.o ehrensubs.o lionml_data.o drive.o 
+tmplist += input_read.o init_lio.o ehrensubs.o lionml_data.o drive.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/TD.mod
 ################################################################################
 OBJECTS += fockbias_data.o
@@ -257,14 +257,14 @@ SRCDIRS += dftd3
 OBJECTS += dftd3.o
 
 tmplist :=
-tmplist += 
-tmplist += 
+tmplist +=
+tmplist +=
 tmplist += SCF.o dft_get_mm_forces.o dft_get_qm_forces.o lionml_data.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/dftd3.o
 
 ################################################################################
-tmplist := 
-tmplist += cubegen.o 
+tmplist :=
+tmplist += cubegen.o
 tmplist += init_lio.o
 tmplist += liomain.o
 tmplist += lionml_data.o
@@ -341,7 +341,7 @@ OBJECTS += typedef_operator.o
 #
 modusrs :=
 modusrs += SCF.o converger_subs.o TD.o geometry_optim.o liomain.o CDFT.o
-modusrs += tbdft_subs.o
+modusrs += tbdft_subs.o dos_subs.o
 $(modusrs:%.o=$(OBJPATH)/%.o) : ${OBJPATH}/typedef_operator.mod
 ################################################################################
 OBJECTS += mask_ecp.o

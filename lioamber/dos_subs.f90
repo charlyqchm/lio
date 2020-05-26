@@ -36,6 +36,8 @@ subroutine init_PDOS(M)
       endif
    endif
 
+   if (trans_calc) allocate(trans_coef(M))
+
    close(10203)
 end subroutine
 
@@ -183,5 +185,46 @@ subroutine write_DOS (M_in, morb_energy)
    endif
 
 endsubroutine write_DOS
+
+subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
+                            fock_op)
+
+   use DOS_data        , only: trans_coef
+   use tbdft_data      , only: MTB, n_biasTB, tbdft_calc
+   use typedef_operator, only: operator
+
+   implicit none
+   integer, intent(in)        :: M
+   integer, intent(in)        :: M_total
+   LIODBLE, intent(in)        :: coef_mat(M_total,M_total)
+   LIODBLE, intent(in)        :: morb_energy(M_total)
+   type(operator), intent(in) :: fock_op
+
+   integer  :: ii, jj, kk, ee
+   integer  :: Nb
+   LIODBLE  :: fockAO(M_total, M_total)
+   LIODBLE  :: aux1
+
+   Nb = MTB/n_biasTB
+
+   trans_coef = 0.0d0
+
+   call fock_op%Gets_data_AO(fockAO)
+
+   do ee = 1, M_total
+      aux1 = 0.0d0
+      do ii = 1, M
+      do jj = 1, M
+      do kk = 1, Nb
+          aux1 = aux1 + fockAO(MTB+ii,kk)*coef_mat(kk,ee)*coef(MTB+jj,ee)*     &
+                 overlap(jj,ii)
+      enddo
+      enddo
+      enddo
+      trans_coef(ee) = abs(aux1)
+      write(777,*) morb_energy(ee), trans_coef(ee)
+   enddo
+
+endsubroutine write_trans_func
 
 end module DOS_subs
