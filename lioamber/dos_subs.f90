@@ -8,7 +8,8 @@ subroutine init_PDOS(M)
     ! read the PDOS_dat.in file.
     use DOS_data, only: pdos_calc, pdos_allb , pdos, pdos_nuc,       &
                         pdos_natoms, pdos_nbases, pdos_b, min_level, &
-                        dos_nsteps, dos_sigma, dos_Eref, dos_calc
+                        dos_nsteps, dos_sigma, dos_Eref, dos_calc,
+                        trans_calc, trans_coef
 
     implicit none
     integer, intent(in) :: M
@@ -189,7 +190,7 @@ endsubroutine write_DOS
 subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
                             fock_op)
 
-   use DOS_data        , only: trans_coef
+   use DOS_data        , only: trans_coef, trans_calc
    use tbdft_data      , only: MTB, n_biasTB, tbdft_calc
    use typedef_operator, only: operator
 
@@ -198,12 +199,15 @@ subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
    integer, intent(in)        :: M_total
    LIODBLE, intent(in)        :: coef_mat(M_total,M_total)
    LIODBLE, intent(in)        :: morb_energy(M_total)
+   LIODBLE, intent(in)        :: overlap(M, M)
    type(operator), intent(in) :: fock_op
 
    integer  :: ii, jj, kk, ee
    integer  :: Nb
    LIODBLE  :: fockAO(M_total, M_total)
    LIODBLE  :: aux1
+
+   if(.not.trans_calc) return
 
    Nb = MTB/n_biasTB
 
@@ -216,7 +220,7 @@ subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
       do ii = 1, M
       do jj = 1, M
       do kk = 1, Nb
-          aux1 = aux1 + fockAO(MTB+ii,kk)*coef_mat(kk,ee)*coef(MTB+jj,ee)*     &
+          aux1 = aux1 + fockAO(MTB+ii,kk)*coef_mat(kk,ee)*coef_mat(MTB+jj,ee)* &
                  overlap(jj,ii)
       enddo
       enddo
