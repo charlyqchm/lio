@@ -8,7 +8,7 @@ subroutine init_PDOS(M)
     ! read the PDOS_dat.in file.
     use DOS_data, only: pdos_calc, pdos_allb , pdos, pdos_nuc,       &
                         pdos_natoms, pdos_nbases, pdos_b, min_level, &
-                        dos_nsteps, dos_sigma, dos_Eref, dos_calc,
+                        dos_nsteps, dos_sigma, dos_Eref, dos_calc,   &
                         trans_calc, trans_coef
 
     implicit none
@@ -190,7 +190,8 @@ endsubroutine write_DOS
 subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
                             fock_op)
 
-   use DOS_data        , only: trans_coef, trans_calc
+   use DOS_data        , only: trans_coef, trans_calc, min_level, dos_nsteps, &
+                               dos_sigma, dos_Eref
    use tbdft_data      , only: MTB, n_biasTB, tbdft_calc
    use typedef_operator, only: operator
 
@@ -206,6 +207,9 @@ subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
    integer  :: Nb
    LIODBLE  :: fockAO(M_total, M_total)
    LIODBLE  :: aux1
+   LIODBLE  :: min_e, max_e, delta
+   LIODBLE  :: pexpf, expf, T_E
+   LIODBLE  :: x0, xx
 
    if(.not.trans_calc) return
 
@@ -226,8 +230,31 @@ subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
       enddo
       enddo
       trans_coef(ee) = abs(aux1)
-      write(777,*) morb_energy(ee), trans_coef(ee)
    enddo
+
+   pexpf = 1.0d0
+   expf  = -1.0d0/(2.0d0*dos_sigma**2)
+
+   min_e = morb_energy(min_level) - &
+          (morb_energy(M_total) - morb_energy(min_level))/(M_total+1-min_level)
+   max_e = morb_energy(M_total) - &
+          (morb_energy(M_total) - morb_energy(min_level))/(M_total+1 -min_level)
+   delta = (max_e - min_e) / dble(dos_nsteps)
+
+   open(unit = 10203, file = "Transmission.out")
+   x0 = min_e - dos_Eref
+   xx = 0.0D0
+
+   do ii = 1, dos_nsteps
+      T_E = 0.0d0
+      xx = x0 + delta * dble(ii)
+      do jj = min_level, M_total
+         T_E = T_E + trans_coef(jj) * pexpf * &
+                   dexp(expf * (xx + dos_Eref - morb_energy(jj)) ** 2.0D0)
+      enddo
+      if (T_E > 1.0D-16) write(10203, *) xx, T_E
+   enddo
+   close(10203)
 
 endsubroutine write_trans_func
 
