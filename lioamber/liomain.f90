@@ -105,7 +105,8 @@ subroutine liomain(E, dipxyz)
    else
       call build_PDOS(MO_coef_at_b, Smat, M, M_f, Nuc)
       call write_DOS(M_f, Eorbs_b)
-      call write_trans_func(MO_coef_at_b, Eorbs_b, Smat, M, M_f, fock_bop)
+      call write_trans_func(MO_coef_at, Eorbs, Smat, M, M_f, fock_aop, OPEN,   &
+                            MO_coef_at_b, Eorbs_b, Smat, M, M_f, fock_bop)
    endif
 
    if ((restart_freq > 0) .and. (MOD(npas, restart_freq) == 0)) &

@@ -8,8 +8,7 @@ subroutine init_PDOS(M)
     ! read the PDOS_dat.in file.
     use DOS_data, only: pdos_calc, pdos_allb , pdos, pdos_nuc,       &
                         pdos_natoms, pdos_nbases, pdos_b, min_level, &
-                        dos_nsteps, dos_sigma, dos_Eref, dos_calc,   &
-                        trans_calc, trans_coef
+                        dos_nsteps, dos_sigma, dos_Eref, dos_calc
 
     implicit none
     integer, intent(in) :: M
@@ -36,8 +35,6 @@ subroutine init_PDOS(M)
          read(10203,*) pdos_nuc
       endif
    endif
-
-   if (trans_calc) allocate(trans_coef(M))
 
    close(10203)
 end subroutine
@@ -188,48 +185,68 @@ subroutine write_DOS (M_in, morb_energy)
 endsubroutine write_DOS
 
 subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
-                            fock_op)
+                            fock_op, open_shell, coef_mat_b, morb_energy_b,    &
+                            fock_bop)
 
-   use DOS_data        , only: trans_coef, trans_calc, min_level, dos_nsteps, &
+   use DOS_data        , only: trans_calc, min_level, dos_nsteps,              &
                                dos_sigma, dos_Eref
    use tbdft_data      , only: MTB, n_biasTB, tbdft_calc
    use typedef_operator, only: operator
 
    implicit none
+   logical, intent(in)        :: open_shell
    integer, intent(in)        :: M
    integer, intent(in)        :: M_total
    LIODBLE, intent(in)        :: coef_mat(M_total,M_total)
    LIODBLE, intent(in)        :: morb_energy(M_total)
    LIODBLE, intent(in)        :: overlap(M, M)
    type(operator), intent(in) :: fock_op
+   LIODBLE, intent(in), optional :: coef_mat_b(M_total,M_total)
+   LIODBLE, intent(in), optional :: morb_energy_b(M_total)
+   type(operator), intent(in), optional:: fock_bop
+
 
    integer  :: ii, jj, kk, ee
    integer  :: Nb
-   LIODBLE  :: fockAO(M_total, M_total)
-   LIODBLE  :: aux1
+   LIODBLE, allocatable  :: fockAO(:,:,:)
+   LIODBLE, allocatable  :: trans_coef(:,:)
    LIODBLE  :: min_e, max_e, delta
    LIODBLE  :: pexpf, expf, T_E
    LIODBLE  :: x0, xx
+   LIODBLE  :: n_spin
 
    if(.not.trans_calc) return
+
+   if(.not.open_shell) then
+      allocate(fockAO(M_total,M_total,1), trans_coef(M_total,1))
+      n_spin = 2.0d0
+   else
+      allocate(fockAO(M_total,M_total,2),trans_coef(M_total,2)))
+      n_spin = 1.0d0
+   end if
+   trans_coef = 0.0d0
+
+   call fock_op%Gets_data_AO(fockAO(:,:,1))
+   if(open_shell) call fock_bop%Gets_data_AO(fockAO(:,:,2))
 
    Nb = MTB/n_biasTB
 
    trans_coef = 0.0d0
 
-   call fock_op%Gets_data_AO(fockAO)
-
    do ee = 1, M_total
-      aux1 = 0.0d0
       do ii = 1, M
       do jj = 1, M
       do kk = 1, Nb
-          aux1 = aux1 + fockAO(MTB+ii,kk)*coef_mat(kk,ee)*coef_mat(MTB+jj,ee)* &
-                 overlap(jj,ii)
+          trans_coef(ee,1) = trans_coef(ee,1) + fockAO(MTB+ii,kk,1)*           &
+                             coef_mat(kk,ee)*coef_mat(MTB+jj,ee)*overlap(jj,ii)
+          if (open_shell) trans_coef(ee,2)  = trans_coef(ee,2) +               &
+                          fockAO(MTB+ii,kk,2)*coef_mat_b(kk,ee)*               &
+                          coef_mat_b(MTB+jj,ee)*overlap(jj,ii)
       enddo
       enddo
       enddo
-      trans_coef(ee) = abs(aux1)
+      trans_coef(ee,1) = abs(trans_coef(ee,1))
+      if(open_shell) trans_coef(ee,2) = abs(trans_coef(ee,2))
    enddo
 
    pexpf = 1.0d0
@@ -249,10 +266,12 @@ subroutine write_trans_func(coef_mat, morb_energy, overlap, M, M_total,        &
       T_E = 0.0d0
       xx = x0 + delta * dble(ii)
       do jj = min_level, M_total
-         T_E = T_E + trans_coef(jj) * pexpf * &
+         T_E = T_E + trans_coef(jj,1) * pexpf * &
                    dexp(expf * (xx + dos_Eref - morb_energy(jj)) ** 2.0D0)
+         if (open_shell) T_E = T_E + trans_coef(jj,2) * pexpf *                &
+                        dexp(expf*(xx + dos_Eref - morb_energy_b(jj)) ** 2.0D0)
       enddo
-      if (T_E > 1.0D-16) write(10203, *) xx, T_E
+      if (T_E > 1.0D-16) write(10203, *) xx, n_spin*T_E
    enddo
    close(10203)
 

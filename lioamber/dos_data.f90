@@ -23,7 +23,7 @@ module DOS_data
    logical               :: dos_calc     = .false.
    logical               :: pdos_calc    = .false.
    logical               :: pdos_allb    = .false.
-   logical               :: trans_calc   = .false.
+   logical               :: trans_calc   = .true.
    integer               :: min_level    = 1
    integer               :: dos_nsteps   = 200000
    LIODBLE               :: dos_sigma    = 0.0004d0
@@ -35,6 +35,5 @@ module DOS_data
    integer     , allocatable :: pdos_base(:)
    LIODBLE, allocatable :: pdos(:)
    LIODBLE, allocatable :: pdos_b(:,:)
-   LIODBLE, allocatable :: trans_coef(:)
 
 end module DOS_data
