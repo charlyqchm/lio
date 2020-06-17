@@ -14,11 +14,13 @@ module ceed_data
    LIODBLE                     :: k_ceed         = 1.0d0
    LIODBLE       , parameter   :: A_ceed         = 2.592668788247536d-7
                                                   !2/3 \hbar \alpha/c^2
-   LIODBLE       , allocatable :: d2dip_ceed(:,:) !Matrix to store the total 
+   LIODBLE       , allocatable :: d2dip_ceed(:,:) !Matrix to store the total
                                                   !second derivatives of the
                                                   !dipole moment in the 3
                                                   !coordinates.
-   type(cumat_r)               :: Xmat_ceed !Base change operator
+   LIODBLE       , allocatable :: ceed_coef(:,:)
+    LIODBLE       , allocatable :: ceed_coefT(:,:)
+   type(cumat_r)               :: Xmat_ceed, Ytrans_ceed !Base change operator
    type(operator), allocatable :: dip_ceed_op(:) !Dipole matrix operator for
                                                  !each coordinate.
    type(operator), allocatable :: d2ip_ceed_op(:,:)!Second derivative dipole

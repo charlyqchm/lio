@@ -63,6 +63,7 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
    use fstshsubs   ,  only: TSHmain
    use dftd3, only: dftd3_energy
    use extern_functional_subs, only: libint_init, exact_exchange, exact_energies
+   use ceed_subs, only: ceed_saving_coef
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
@@ -617,6 +618,9 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
 999 continue
 
    call g2g_timer_sum_start('Finalize SCF')
+
+!charly: cosas sucias de CEED
+   call ceed_saving_coef(morb_coefat, M)
 
    ! Checks of convergence
    if (niter >= nMax) then
