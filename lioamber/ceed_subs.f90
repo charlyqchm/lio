@@ -138,7 +138,7 @@ subroutine ceed_fock_calculation(fock_in, rho_in, M, t_step, dim3, open_shell)
             d2dip_ceed(ii,ss) = d2dip_ceed(ii,ss) - aux1
             dmu2_vec(jj) = dmu2_vec(jj) - aux1
          end do
-            if(ii == 1 )write(777,*) " ",jj," ", dmu2_vec(jj)
+!            if(ii == 1 )write(777,*) " ",jj," ", dmu2_vec(jj)
          end do
       end do
          aux1  = d2dip_ceed(ii,1)

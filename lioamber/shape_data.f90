@@ -47,7 +47,7 @@ contains
       exponent  = 0.0D0
 
       exponent  = - ( (in_time - center) / decay )**2
-      shape_mag = f_coord * exp(exponent)
+      shape_mag = f_coord * exp(exponent) * dcos(0.088*(in_time-center))
 
       return
    end function calc_g

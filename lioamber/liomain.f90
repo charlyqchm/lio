@@ -87,6 +87,7 @@ subroutine liomain(E, dipxyz)
       endif
 
       if (timedep == 1) then
+         call SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
          call TD(fock_aop, rho_aop, fock_bop, rho_bop)
       endif
    endif
