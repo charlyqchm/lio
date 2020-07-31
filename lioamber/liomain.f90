@@ -38,6 +38,8 @@ subroutine liomain(E, dipxyz)
    use rhoint          , only: write1Drho
    use properties      , only: do_dipole, dipole
    use extern_functional_data, only: libint_inited
+   use vib_KE_data     , only: vib_calc
+   use vib_KE_subs     , only: vibrational_calc
 
    implicit none
    LIODBLE  , intent(inout) :: E, dipxyz(3)
@@ -78,6 +80,8 @@ subroutine liomain(E, dipxyz)
       call cubegen_write(MO_coef_at)
    else if (tbdft_calc == 4) then
       call tbdft_calibration(E, fock_aop, rho_aop, fock_bop, rho_bop)
+   else if (vib_calc) then
+      call vibrational_calc(E, fock_aop, rho_aop, fock_bop, rho_bop)
    else
       if (.not. tdrestart) then
          if (doing_cdft) then
@@ -360,4 +364,24 @@ subroutine do_restart(UID, rho_total)
 
    return
 end subroutine do_restart
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+function inv_mat(A) result(Ainv)
+    implicit none
+    LIODBLE,intent(in):: A(:,:)
+    LIODBLE           :: Ainv(size(A,1),size(A,2))
+    LIODBLE           :: work(size(A,1))            ! work array for LAPACK
+    integer           :: n,info,ipiv(size(A,1))     ! pivot indices
+
+    ! Store A in Ainv to prevent it from being overwritten by LAPACK
+    Ainv = A
+    n = size(A,1)
+    ! DGETRF computes an LU factorization of a general M-by-N matrix A
+    ! using partial pivoting with row interchanges.
+    call DGETRF(n,n,Ainv,n,ipiv,info)
+    if (info.ne.0) stop 'Matrix is numerically singular!'
+    ! DGETRI computes the inverse of a matrix using the LU factorization
+    ! computed by DGETRF.
+    call DGETRI(n,Ainv,n,ipiv,work,n,info)
+    if (info.ne.0) stop 'Matrix inversion failed!'
+end function inv_mat
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
