@@ -164,11 +164,11 @@ OBJECTS += vib_KE_subs.o
 OBJECTS += vib_KE_data.o
 
 tmplist :=
-tmplist += liomain.o
+tmplist += liomain.o TD.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/vib_KE_subs.mod
 
 tmplist :=
-tmplist += vib_KE_subs.o liomain.o
+tmplist += vib_KE_subs.o liomain.o TD.o
 $(tmplist:%.o=$(OBJPATH)/%.o) : $(OBJPATH)/vib_KE_data.mod
 ################################################################################
 include converger_subs/conver.mk
@@ -367,7 +367,7 @@ SRCDIRS += typedef_cumat
 OBJECTS += typedef_cumat.o
 #
 modusrs := SCF.o converger_subs.o typedef_operator.o transport.o propagators.o tbdft_subs.o
-modusrs += ceed_data.o
+modusrs += ceed_data.o vib_KE_data.o
 $(modusrs:%.o=$(OBJPATH)/%.o) : ${OBJPATH}/typedef_cumat.mod
 
 ################################################################################

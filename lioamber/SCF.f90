@@ -296,8 +296,6 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
         end if
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
-!
-!
 !  Fockbias setup
         if ( allocated(sqsm) ) deallocate(sqsm)
         if ( allocated(tmpmat) ) deallocate(tmpmat)

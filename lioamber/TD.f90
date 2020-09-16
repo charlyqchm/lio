@@ -74,6 +74,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    use typedef_cumat   , only: cumat_x, cumat_r
    use faint_cpu       , only: int2
    use ceed_subs       , only: ceed_init
+   use vib_KE_subs     , only: init_KE_evol
 
    implicit none
 !carlos: Operator inserted for TD
@@ -246,6 +247,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       ntdstep = ntdstep + 9 * lpfrg_steps / 10
    endif
 
+   call init_KE_evol(M)
 
    call g2g_timer_stop('td-inicio')
    ! End of TD initialization.
@@ -868,11 +870,11 @@ subroutine td_orbital_population(rho_alf, rho_bet, open_shell, nstep, &
    integer       , intent(in)    :: nstep, propagator, do_pop, basis_m
    logical       , intent(in)    :: open_shell, is_lpfrg
    type(operator), intent(inout) :: rho_alf, rho_bet
-  
+
    TDCOMPLEX , allocatable :: tmp_mat(:,:)
    LIODBLE   , allocatable :: eivec(:,:), eival(:), eivec2(:,:), eival2(:)
 
- 
+
    if (do_pop == 0) return
    if (.not. (mod(nstep, do_pop) == 0)) return
    if ((.not. (mod(nstep, do_pop*10) == 0)) .and. (propagator > 1) &
@@ -902,7 +904,7 @@ subroutine td_orbital_population(rho_alf, rho_bet, open_shell, nstep, &
 
    deallocate(eival, eivec, tmp_mat)
    if (open_shell) deallocate(eival2, eivec2)
-   
+
 end subroutine td_orbital_population
 
 subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time)
@@ -952,6 +954,8 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    use typedef_cumat   , only: cumat_x
    use ceed_data       , only: ceed_calc
    use ceed_subs       , only: ceed_fock_calculation
+   use vib_KE_data     , only: ke_calc, ke_start_t
+   use vib_KE_subs     , only: ke_rho_evolve
    implicit none
 
    logical       , intent(in)    :: OPEN
@@ -1030,6 +1034,23 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
       deallocate(fock_aux)
    end if
 
+!charly: implementamos e-phon pero esto esta medio sucio
+
+   if (ke_calc==2 .and. istep >= ke_start_t) then
+      ! allocate(fock_aux(M_f,M_f,dim3))
+      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
+      ! call fock_aop%Gets_data_AO(fock_aux(:,:,1))
+      call ke_rho_evolve(rho_aux(:,:,1), M, istep)
+      call Ymat%change_base(rho_aux(:,:,1),'dir')
+      if ((td_eu_step /= 0).and.(mod(istep, td_eu_step)==0)) then
+         rhonew = rhonew + real(dt_lpfrg,COMPLEX_SIZE/2) * rho_aux
+      else
+         rhonew = rhonew + liocmplx(2.0d0,0.0d0)*real(dt_lpfrg,COMPLEX_SIZE/2)*&
+                           rho_aux
+      end if
+      ! deallocate(fock_aux)
+   end if
+
    !Transport: Add the driving term to the propagation.
    if ((istep >= 3) .and. (transport_calc)) then
       write(*,*) 'Transport: Adding driving term to the density.'
@@ -1057,7 +1078,7 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    endif
 
    deallocate(rho, rho_aux)
-   
+
 end subroutine td_verlet
 
 subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
