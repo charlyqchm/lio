@@ -73,6 +73,8 @@ module lionml_data
                                  w_rho_rmin, w_rho_rmax, w_rho_dr,             &
                                  w_rho_dtheta, w_rho_dphi, write1Drho
    use ceed_data         , only: ceed_calc, ceed_td_step, k_ceed
+   use vib_KE_data       , only: vib_calc, ke_calc, hess_norder, ke_start_t,   &
+                                 delta_h, ke_sigma, phon_temp, ke_tol
    use extern_functional_data, only: extern_functional, functional_id
 
 
@@ -161,7 +163,10 @@ module lionml_data
                   ! Extern Functional
                   extern_functional, functional_id,                            &
                   ! Variavles for CEED
-                  ceed_calc, ceed_td_step, k_ceed
+                  ceed_calc, ceed_td_step, k_ceed,                             &
+                  ! Varibales for vibrational and electron-phonon calculations
+                  vib_calc, ke_calc, hess_norder, ke_start_t, delta_h,         &
+                  ke_sigma, phon_temp, ke_tol
 
    type lio_input_data
       ! COMMON
@@ -237,6 +242,15 @@ module lionml_data
       logical          :: ceed_calc
       integer          :: ceed_td_step
       LIODBLE          :: k_ceed
+      ! Vibrational and electron-phonon calculations
+      logical          :: vib_calc
+      integer          :: ke_calc
+      integer          :: hess_norder
+      integer          :: ke_start_t
+      LIODBLE          :: delta_h
+      LIODBLE          :: ke_sigma
+      LIODBLE          :: phon_temp
+      LIODBLE          :: ke_tol
    end type lio_input_data
 contains
 
@@ -360,6 +374,17 @@ subroutine get_namelist(lio_in)
    lio_in%ceed_calc    = ceed_calc
    lio_in%ceed_td_step = ceed_td_step
    lio_in%k_ceed       = k_ceed
+
+   !Vibrational and electron-phonon calculations
+   lio_in%vib_calc     = vib_calc
+   lio_in%ke_calc      = ke_calc
+   lio_in%hess_norder  = hess_norder
+   lio_in%ke_start_t   = ke_start_t
+   lio_in%delta_h      = delta_h
+   lio_in%ke_sigma     = ke_sigma
+   lio_in%phon_temp    = phon_temp
+   lio_in%ke_tol       = ke_tol
+
    ! Libxc configuration
    !lio_in%ex_functional_id = ex_functional_id
    !lio_in%ec_functional_id = ec_functional_id

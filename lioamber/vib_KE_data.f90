@@ -16,7 +16,8 @@ module vib_KE_data
    integer              :: ke_start_t   = 100
    LIODBLE              :: delta_h      = 0.01d0 !Amstrongs
    LIODBLE              :: ke_sigma     = 0.1d0
-   LIODBLE              :: phon_temp    = 0.00001d0!0.0d0
+   LIODBLE              :: phon_temp    = 0.00d0
+   LIODBLE              :: ke_tol       = 1.0d-6
    integer, allocatable :: ke_ind(:)
    LIODBLE, allocatable :: atom_mass(:)
    LIODBLE, allocatable :: mass_w(:)

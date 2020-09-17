@@ -788,14 +788,17 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
    end do
 
    close(10101)
+
+   write(*,301)
+
+301 FORMAT(2x,"File elecphon.out has been succesfully created")
 end subroutine calc_dHdQ
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 
 subroutine init_KE_evol(M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, ke_calc, YCinv_ke,     &
-                          phon_pop, ke_coef, phon_pop, PFW_vec, phon_temp,     &
-                          XCmat_ke
+                          phon_pop, ke_coef, phon_pop, PFW_vec, phon_temp
 
    integer, intent(in)  :: M
    logical              :: file_exists
@@ -856,7 +859,6 @@ subroutine init_KE_evol(M)
    end do
 
    call YCinv_ke%init(M,coef_cmplx)
-   call XCmat_ke%init(M, ke_coef)
 
    call neglect_terms(dHdQ, M)
    call create_phon_bath(phon_pop, armonic_freq ,phon_temp, n_vib)
@@ -888,7 +890,7 @@ end subroutine init_KE_evol
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine neglect_terms(dHdQ, M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, PFW_vec, ke_sigma,    &
-                          ke_ind
+                          ke_ind, ke_tol
 
    integer, intent(in) :: M
    LIODBLE, intent(in) :: dHdQ(M,M,n_vib)
@@ -911,7 +913,7 @@ subroutine neglect_terms(dHdQ, M)
       aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
       aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
-      if((aux1>1.0d-6.or.aux2>1.0d-6).and.(ii/=jj)) then
+      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
          count = count + 1
       end if
 
@@ -939,7 +941,7 @@ subroutine neglect_terms(dHdQ, M)
       aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
 
-      if((aux1>1.0d-6.or.aux2>1.0d-6).and.(ii/=jj)) then
+      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
          PFW_vec(ll) = pi * Fj/wj
          ke_ind(ll)   = (ii-1)+M*(jj-1)+M2*(kk-1)
          write(*,*) ii, jj, kk, PFW_vec(ll)
@@ -959,14 +961,12 @@ subroutine ke_rho_evolve(rho_at, M, istep)
 
    implicit none
    integer  , intent(in)    :: M, istep
-   ! LIODBLE  , intent(in)    :: fock_at(M,M)
    TDCOMPLEX, intent(inout) :: rho_at(M,M)
    TDCOMPLEX                :: rho_ke(M,M)
    integer                  :: ii, jj, kk, ll, M2
    integer                  :: len_PFW
    LIODBLE                  :: eta(M)
    LIODBLE                  :: lambda(M)
-   ! LIODBLE                  :: fock_OM(M,M)
    LIODBLE                  :: Ea, Eb, wj, rhoa, rhob, Nj, exp1, exp2
    TDCOMPLEX                :: rho_OM(M,M)
    TDCOMPLEX                :: traza
@@ -976,13 +976,11 @@ subroutine ke_rho_evolve(rho_at, M, istep)
    M2      = M*M
    rho_OM  = rho_at
    rho_ke  = 0.0d0
-   ! fock_OM = fock_at
    len_PFW = size(PFW_vec)
    eta     = 0.0d0
    lambda  = 0.0d0
 
    call YCinv_ke%change_base(rho_OM, 'dir')
-   ! call XCmat_ke%change_base(fock_OM, 'dir')
 
    traza = 0.0d0
    do ii=1,M
@@ -990,19 +988,19 @@ subroutine ke_rho_evolve(rho_at, M, istep)
    end do
       write(*,*) "Traza=", real(traza)
 
-   if (mod(istep, 100) == 0) then
-      do ii=1,M
-         write(777,*) real(rho_OM(ii,ii))
-      end do
-   end if
+   ! if (mod(istep, 100) == 0) then
+   !    do ii=1,M
+   !       write(777,*) real(rho_OM(ii,ii))
+   !    end do
+   ! end if
 
    do ll=1, len_PFW
       kk = int(ke_ind(ll)/M2)+1
       jj = int((ke_ind(ll)-M2*(kk-1))/M)+1
       ii = ke_ind(ll)-M2*(kk-1)-M*(jj-1)+1
 
-      Ea   = ke_eorb(ii)!fock_OM(ii,ii)
-      Eb   = ke_eorb(jj)!fock_OM(jj,jj)
+      Ea   = ke_eorb(ii)
+      Eb   = ke_eorb(jj)
       wj   = armonic_freq(kk)
       exp1 = dirac_delta(Ea,Eb,wj,ke_sigma)
       exp2 = dirac_delta(Ea,Eb,-wj,ke_sigma)
@@ -1018,7 +1016,7 @@ subroutine ke_rho_evolve(rho_at, M, istep)
    do ii=1, M
       if (ii==jj) then
          rho_ke(ii,ii) = real(-eta(ii), COMPLEX_SIZE/2) * rho_OM(ii,ii) +       &
-                         real(lambda(ii), COMPLEX_SIZE/2)
+                         real(2.0d0*lambda(ii), COMPLEX_SIZE/2)
       else
          rho_ke(ii,jj) = real(-0.5d0*(eta(ii)+eta(jj)), COMPLEX_SIZE/2) *       &
                          rho_OM(ii,jj)
@@ -1026,11 +1024,11 @@ subroutine ke_rho_evolve(rho_at, M, istep)
    end do
    end do
 
-   traza = 0.0d0
-   do ii=1,M
-      traza = traza+rho_ke(ii,ii)
-   end do
-      write(*,*) "KE traza=", real(traza)
+   ! traza = 0.0d0
+   ! do ii=1,M
+   !    traza = traza+rho_ke(ii,ii)
+   ! end do
+   !    write(*,*) "KE traza=", real(traza)
 
    call YCinv_ke%change_base(rho_ke, 'inv')
    rho_at = rho_ke

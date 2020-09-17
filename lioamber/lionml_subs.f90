@@ -210,7 +210,10 @@ subroutine lionml_write_dull()
    write(*,8220) inputs%dftd3
    write(*,9000) " ! -- CEED calculation: -- !"
    write(*,8230) inputs%ceed_calc, inputs%ceed_td_step, inputs%k_ceed
-
+   write(*,9000) " ! -- Vibrational and electron-phonon calculations --!"
+   write(*,8240) inputs%vib_calc, inputs%ke_calc, inputs%hess_norder
+   write(*,8241) inputs%ke_start_t, inputs%delta_h, inputs%ke_sigma
+   write(*,8242) inputs%phon_temp, inputs%ke_tol
 ! General
 9000 FORMAT(A)
 8000 FORMAT(2x, "Natom = ", I5, ", Nsol = ", I8, ", charge = ", I5, &
@@ -316,6 +319,11 @@ subroutine lionml_write_dull()
 ! CEED
 8230 FORMAT(2x, "ceed_calc = ", L2 , ", ceed_td_step = ", I6 , ", k_ceed = ",  &
             ES9.2)
+!Vibration and electron-phonon
+8240 FORMAT(2x, "vib_calc = ", L2, ", ke_calc = ", I2, ", hess_norder = ", I2)
+8241 FORMAT(2x, "ke_start_t = ", I6, ", delta_h = ", F14.8, ", ke_sigma = ",   &
+            F14.8)
+8242 FORMAT(2x, "phon_temp = ", F14.8, ", ke_tol = ", F14.8)
    return
 end subroutine lionml_write_dull
 
@@ -460,10 +468,20 @@ subroutine lionml_write_style()
    write(*,8602) inputs%pdos_allb
    write(*,8003)
    !CEED
-   write(*,8000); write(*,8111); write(*,8002)
+   write(*,8000); write(*,8112); write(*,8002)
    write(*,8700) inputs%ceed_calc
    write(*,8701) inputs%ceed_td_step
    write(*,8702) inputs%k_ceed
+   !Vibrations and electron-phonon
+   write(*,8000); write(*,8113); write(*,8002)
+   write(*,8800) inputs%vib_calc
+   write(*,8801) inputs%ke_calc
+   write(*,8802) inputs%hess_norder
+   write(*,8803) inputs%ke_start_t
+   write(*,8804) inputs%delta_h
+   write(*,8805) inputs%ke_sigma
+   write(*,8806) inputs%phon_temp
+   write(*,8807) inputs%ke_tol
 
    return;
 8000 FORMAT(4x,"╔═════════════════════════════════", &
@@ -482,10 +500,12 @@ subroutine lionml_write_style()
 8105 FORMAT(4x,"║            Minimization and Restraints           ║")
 8106 FORMAT(4x,"║                     CubeGen                      ║")
 8107 FORMAT(4x,"║                   GPU Options                    ║")
-8108 FORMAT(4x,"║                Transport and TBDFT                ║")
+8108 FORMAT(4x,"║                Transport and TBDFT               ║")
 8109 FORMAT(4x,"║                Ehrenfest Dynamics                ║")
 8110 FORMAT(4x,"║               Fock Bias Potentials               ║")
 8111 FORMAT(4x,"║                     DOS-PDOS                     ║")
+8112 FORMAT(4x,"║                       CEED                       ║")
+8113 FORMAT(4x,"║           Vibrations and electron-phonon         ║" )
 
 !System and Theory Level
 8200 FORMAT(4x,"║  Natom               ║  ",17x,I6,2x,"║")
@@ -649,6 +669,17 @@ subroutine lionml_write_style()
 8700 FORMAT(4x,"║  ceed_calc           ║  ",21x,L2,2x,"║")
 8701 FORMAT(4x,"║  ceed_td_step        ║  ",18x,I5,2x,"║")
 8702 FORMAT(4x,"║  k_ceed              ║  ",9x,F14.8,2x,"║")
+!Vibrations and electron-phonon
+8800 FORMAT(4x,"║  vib_calc            ║  ",21x,L2,2x,"║")
+8801 FORMAT(4x,"║  ke_calc             ║  ",18x,I5,2x,"║")
+8802 FORMAT(4x,"║  hess_norder         ║  ",18x,I5,2x,"║")
+8803 FORMAT(4x,"║  ke_start_t          ║  ",18x,I5,2x,"║")
+8804 FORMAT(4x,"║  delta_h             ║  ",9x,F14.8,2x,"║")
+8805 FORMAT(4x,"║  ke_sigma            ║  ",9x,F14.8,2x,"║")
+8806 FORMAT(4x,"║  phon_temp           ║  ",9x,F14.8,2x,"║")
+8807 FORMAT(4x,"║  ke_tol              ║  ",9x,F14.8,2x,"║")
+
+
 end subroutine lionml_write_style
 
 subroutine write_Zlist_ECP_dull(ZlistECP, D)

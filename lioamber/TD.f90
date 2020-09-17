@@ -1037,9 +1037,7 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
 !charly: implementamos e-phon pero esto esta medio sucio
 
    if (ke_calc==2 .and. istep >= ke_start_t) then
-      ! allocate(fock_aux(M_f,M_f,dim3))
       call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
-      ! call fock_aop%Gets_data_AO(fock_aux(:,:,1))
       call ke_rho_evolve(rho_aux(:,:,1), M, istep)
       call Ymat%change_base(rho_aux(:,:,1),'dir')
       if ((td_eu_step /= 0).and.(mod(istep, td_eu_step)==0)) then
