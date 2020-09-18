@@ -7,9 +7,9 @@ module vib_KE_subs
 contains
 !###############################################################################
 subroutine init_vib_calc(natom, M)
-   use vib_KE_data    , only : move_atom, atom_mass, mass_w, emass_d,          &
-                               armonic_vec, armonic_freq, nat_move,         &
-                               ke_coef, ke_eorb, ke_calc
+   use vib_KE_data    , only : move_atom, atom_mass, mass_w, armonic_vec,      &
+                               armonic_freq, nat_move, ke_coef, ke_eorb,       &
+                               ke_calc
 
    implicit none
    integer, intent(in) :: natom
@@ -20,11 +20,8 @@ subroutine init_vib_calc(natom, M)
 
 
    allocate(atom_mass(natom), mass_w(natom))
-   if (ke_calc==1) allocate(ke_coef(M,M))
+   if (ke_calc==1) allocate(ke_coef(M,M), ke_eorb(M))
 
-!carlos: the name of the file is temporal, it should be dynamic
-
-   move_atom = .false.
    atom_mass = 0.0d0
 
 !carlos: the vibration.in file contains the mass information of each atom and also
@@ -70,7 +67,7 @@ end subroutine init_vib_calc
 subroutine vibrational_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
    use garcha_mod      , only : r, natom, rqm, Smat, MO_coef_at, Eorbs
-   use basis_data      , only : M, Nuc !nuc is temporary
+   use basis_data      , only : M
    use vib_KE_data     , only : vib_calc, ke_calc, hess_norder, delta_h,       &
                                 mass_w, armonic_freq, armonic_vec, freq2cm,    &
                                 nat_move, move_atom, ke_coef, ke_eorb
@@ -109,17 +106,22 @@ subroutine vibrational_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
    allocate(dxyzqm(3, natom), hess_mat(3*nat_move, 3*nat_move),                &
             freq(3*nat_move), grad0(3*nat_move),                               &
-            hessp_mat(3*nat_move, 3*nat_move))
+            hessp_mat(3*nat_move, 3*nat_move),Dfock_a(1,1,1),                  &
+            fock0(1,1), DS_dr(1,1,1), Sinv(1,1), Df_Dr(1,1,1),                 &
+            grad(3*nat_move,-1:1,3*nat_move))
 
-   if (ke_calc == 1) allocate(Dfock_a(M,M,3*nat_move),fock0(M,M),              &
-                              DS_dr(M,M,3*nat_move), Sinv(M,M))
+   if (ke_calc == 1) then
+      deallocate(Dfock_a,fock0,DS_dr,Sinv,Df_Dr)
+      allocate(Dfock_a(M,M,3*nat_move),fock0(M,M),DS_dr(M,M,3*nat_move),       &
+               Sinv(M,M))
+      if (hess_norder==1) then ; allocate(Df_Dr(M,M,-1:1))
+      else ; allocate(Df_Dr(M,M,-2:2))
+      end if
+   end if
 
-   if (hess_norder==1) then
-      allocate (grad(3*nat_move,-1:1,3*nat_move))
-      if (ke_calc == 1) allocate(Df_Dr(M,M,-1:1))
-   else
+   if (hess_norder==2) then
+      deallocate(grad)
       allocate (grad(3*nat_move,-2:2,3*nat_move))
-      if (ke_calc == 1) allocate(Df_Dr(M,M,-2:2))
    end if
 
    grad     = 0.0D0
@@ -309,9 +311,7 @@ subroutine eckart(hess,rc,mass_w,move_atom,natom,nat_move,hessp)
    LIODBLE,intent(in)  :: rc(3,natom)
    LIODBLE,intent(out) :: hessp(nat_move*3,nat_move*3)
    !    Internal variables
-   integer             :: ii,jj,kk,iat
-   integer             :: zeros(2),nonz(2)
-   integer             :: ipiv(3)
+   integer             :: ii,jj,iat
    integer             :: ndf
    LIODBLE             :: Mass(nat_move*3)
    LIODBLE             :: X0(3,nat_move)
@@ -319,11 +319,6 @@ subroutine eckart(hess,rc,mass_w,move_atom,natom,nat_move,hessp)
    LIODBLE             :: innp(3,3)
    LIODBLE             :: outp(3,3)
    LIODBLE             :: ai(3)
-   LIODBLE             :: atmp
-   LIODBLE             :: cutoff
-   LIODBLE             :: det
-   LIODBLE             :: trp
-   LIODBLE             :: summ
    LIODBLE             :: totM
    LIODBLE             :: P(nat_move*3,nat_move*3)
    LIODBLE             :: tmp(nat_move*3,nat_move*3)
@@ -341,7 +336,8 @@ subroutine eckart(hess,rc,mass_w,move_atom,natom,nat_move,hessp)
    integer              :: LWORK,INFO
    !    ------------------------------------------------------------------
 
-   ndf = nat_move*3
+   ndf   = nat_move*3
+   cmass = 0.0d0
 
    unitv=reshape((/ 1d0, 0d0, 0d0, &
                &   0d0, 1d0, 0d0, &
@@ -426,7 +422,7 @@ subroutine eckart(hess,rc,mass_w,move_atom,natom,nat_move,hessp)
    LWORK=-1
    allocate(VT(6,6),U(0,0),WORK(1000),IWORK(8*6))
    call dgesdd('O',ndf,6,TRmat,ndf,SV,U,ndf,VT,6,WORK,LWORK,IWORK,INFO)
-   LWORK=WORK(1)
+   LWORK=int(WORK(1))
    deallocate(WORK)
    allocate(WORK(LWORK))
    call dgesdd('O',ndf,6,TRmat,ndf,SV,U,ndf,VT,6,WORK,LWORK,IWORK,INFO)
@@ -499,7 +495,7 @@ subroutine build_hessian(natom, dhau, grad, hess_mat, mass_w)
 
    else
       kk = 1
-      jj = 1
+      ll = 1
       do ii=1, 3*nat_move
       do jj=ii,3*nat_move
          tmp1=0.0d0
@@ -556,7 +552,7 @@ subroutine diagonalize_hessian(natom, hess_mat, armonic_freq, armonic_vec)
    LWORK=-1
    call dsyevd('V','U',ncoords,armonic_vec,ncoords,armonic_freq,WORK1,LWORK,   &
                IWORK1,LWORK,INFO)
-   LWORK=WORK1(1)
+   LWORK=int(WORK1(1))
    LIWORK=IWORK1(1)
    if(allocated(WORK2)) deallocate (WORK2,IWORK2)
    allocate (WORK2(LWORK),IWORK2(LIWORK))
@@ -641,7 +637,7 @@ end function gigj_int
 !###############################################################################
 subroutine calc_dSdR(dSdR_mat, rn, atom, axis, M_in, ntatom)
 
-   use basis_data   , only: Nuc, a, c, ncont, NORM, M, nshell
+   use basis_data   , only: Nuc, a, c, ncont, nshell
 
    implicit none
    integer, intent(in)  :: M_in
@@ -890,7 +886,7 @@ end subroutine init_KE_evol
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine neglect_terms(dHdQ, M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, PFW_vec, ke_sigma,    &
-                          ke_ind, ke_tol
+                          ke_ind, ke_tol, ke_ka
 
    integer, intent(in) :: M
    LIODBLE, intent(in) :: dHdQ(M,M,n_vib)
@@ -910,8 +906,8 @@ subroutine neglect_terms(dHdQ, M)
       Eb   = ke_eorb(jj)
       wj   = armonic_freq(kk)
       Fj   = dHdQ(ii,jj,kk)**2.0d0
-      aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
-      aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
+      aux1 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
+      aux2 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
       if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
          count = count + 1
@@ -923,8 +919,8 @@ subroutine neglect_terms(dHdQ, M)
    if (count > 0) then
       allocate(PFW_vec(count), ke_ind(count))
    else
-      write(*,*) "PFW_vec can't be created, please encrease the broadening     &
-                  of the Dirac delta"
+      write(*,*) "PFW_vec can't be created, please encrease the broadening"
+      write(*,*) "of the Dirac delta"
       stop
    end if
 
@@ -937,12 +933,12 @@ subroutine neglect_terms(dHdQ, M)
       Eb   = ke_eorb(jj)
       wj   = armonic_freq(kk)
       Fj   = dHdQ(ii,jj,kk)**2.0d0
-      aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
-      aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
+      aux1 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
+      aux2 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
 
       if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
-         PFW_vec(ll) = pi * Fj/wj
+         PFW_vec(ll) = ke_ka * pi * Fj/wj
          ke_ind(ll)   = (ii-1)+M*(jj-1)+M2*(kk-1)
          write(*,*) ii, jj, kk, PFW_vec(ll)
          ll = ll + 1
@@ -955,9 +951,9 @@ subroutine neglect_terms(dHdQ, M)
 end subroutine neglect_terms
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine ke_rho_evolve(rho_at, M, istep)
-   use  vib_KE_data, only: PFW_vec, ke_sigma, n_vib, phon_pop, ke_eorb,        &
+   use  vib_KE_data, only: PFW_vec, ke_sigma, phon_pop, ke_eorb,        &
                            armonic_freq, YCinv_ke, ke_calc, ke_ind, ke_sigma,  &
-                           YCinv_ke, XCmat_ke
+                           YCinv_ke
 
    implicit none
    integer  , intent(in)    :: M, istep
@@ -969,13 +965,13 @@ subroutine ke_rho_evolve(rho_at, M, istep)
    LIODBLE                  :: lambda(M)
    LIODBLE                  :: Ea, Eb, wj, rhoa, rhob, Nj, exp1, exp2
    TDCOMPLEX                :: rho_OM(M,M)
-   TDCOMPLEX                :: traza
+   TDCOMPLEX                :: traza, liocmplx
 
    if (.not.(ke_calc==2)) return
 
    M2      = M*M
    rho_OM  = rho_at
-   rho_ke  = 0.0d0
+   rho_ke  = liocmplx(0.0d0,0.0d0)
    len_PFW = size(PFW_vec)
    eta     = 0.0d0
    lambda  = 0.0d0

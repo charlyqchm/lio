@@ -74,7 +74,7 @@ module lionml_data
                                  w_rho_dtheta, w_rho_dphi, write1Drho
    use ceed_data         , only: ceed_calc, ceed_td_step, k_ceed
    use vib_KE_data       , only: vib_calc, ke_calc, hess_norder, ke_start_t,   &
-                                 delta_h, ke_sigma, phon_temp, ke_tol
+                                 delta_h, ke_sigma, phon_temp, ke_tol, ke_ka
    use extern_functional_data, only: extern_functional, functional_id
 
 
@@ -166,7 +166,7 @@ module lionml_data
                   ceed_calc, ceed_td_step, k_ceed,                             &
                   ! Varibales for vibrational and electron-phonon calculations
                   vib_calc, ke_calc, hess_norder, ke_start_t, delta_h,         &
-                  ke_sigma, phon_temp, ke_tol
+                  ke_sigma, phon_temp, ke_tol,ke_ka
 
    type lio_input_data
       ! COMMON
@@ -251,6 +251,7 @@ module lionml_data
       LIODBLE          :: ke_sigma
       LIODBLE          :: phon_temp
       LIODBLE          :: ke_tol
+      LIODBLE          :: ke_ka
    end type lio_input_data
 contains
 
@@ -384,6 +385,7 @@ subroutine get_namelist(lio_in)
    lio_in%ke_sigma     = ke_sigma
    lio_in%phon_temp    = phon_temp
    lio_in%ke_tol       = ke_tol
+   lio_in%ke_ka        = ke_ka
 
    ! Libxc configuration
    !lio_in%ex_functional_id = ex_functional_id
