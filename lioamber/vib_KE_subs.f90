@@ -9,7 +9,7 @@ contains
 subroutine init_vib_calc(natom, M)
    use vib_KE_data    , only : move_atom, atom_mass, mass_w, armonic_vec,      &
                                armonic_freq, nat_move, ke_coef, ke_eorb,       &
-                               ke_calc
+                               ke_calc, ke_lmin, ke_lmax
 
    implicit none
    integer, intent(in) :: natom
@@ -60,6 +60,10 @@ subroutine init_vib_calc(natom, M)
    do ii=1, natom
       mass_w(ii) = 1.0d0 / dsqrt(atom_mass(ii))
    end do
+
+!Selecting relevant levels
+   if(ke_lmin == 0) ke_lmin = 1
+   if(ke_lmax == 0) ke_lmax = M
 
 end subroutine init_vib_calc
 
@@ -886,7 +890,7 @@ end subroutine init_KE_evol
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine neglect_terms(dHdQ, M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, PFW_vec, ke_sigma,    &
-                          ke_ind, ke_tol, ke_ka
+                          ke_ind, ke_tol, ke_ka, ke_lmax, ke_lmin
 
    integer, intent(in) :: M
    LIODBLE, intent(in) :: dHdQ(M,M,n_vib)
@@ -906,11 +910,13 @@ subroutine neglect_terms(dHdQ, M)
       Eb   = ke_eorb(jj)
       wj   = armonic_freq(kk)
       Fj   = dHdQ(ii,jj,kk)**2.0d0
-      aux1 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
-      aux2 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
+      aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
+      aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
       if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
+      if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
          count = count + 1
+      end if
       end if
 
    end do
@@ -920,7 +926,7 @@ subroutine neglect_terms(dHdQ, M)
       allocate(PFW_vec(count), ke_ind(count))
    else
       write(*,*) "PFW_vec can't be created, please encrease the broadening"
-      write(*,*) "of the Dirac delta"
+      write(*,*) "of the Dirac delta or the threshold."
       stop
    end if
 
@@ -933,15 +939,17 @@ subroutine neglect_terms(dHdQ, M)
       Eb   = ke_eorb(jj)
       wj   = armonic_freq(kk)
       Fj   = dHdQ(ii,jj,kk)**2.0d0
-      aux1 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
-      aux2 = ke_ka * pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
+      aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
+      aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
 
       if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
+      if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
          PFW_vec(ll) = ke_ka * pi * Fj/wj
          ke_ind(ll)   = (ii-1)+M*(jj-1)+M2*(kk-1)
          write(*,*) ii, jj, kk, PFW_vec(ll)
          ll = ll + 1
+      end if
       end if
 
    end do

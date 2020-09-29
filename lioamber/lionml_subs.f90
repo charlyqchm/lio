@@ -214,6 +214,7 @@ subroutine lionml_write_dull()
    write(*,8240) inputs%vib_calc, inputs%ke_calc, inputs%hess_norder
    write(*,8241) inputs%ke_start_t, inputs%delta_h, inputs%ke_sigma
    write(*,8242) inputs%phon_temp, inputs%ke_tol, inputs%ke_ka
+   write(*,8243) inputs%ke_lmin, inputs%ke_lmax
 ! General
 9000 FORMAT(A)
 8000 FORMAT(2x, "Natom = ", I5, ", Nsol = ", I8, ", charge = ", I5, &
@@ -323,7 +324,8 @@ subroutine lionml_write_dull()
 8240 FORMAT(2x, "vib_calc = ", L2, ", ke_calc = ", I2, ", hess_norder = ", I2)
 8241 FORMAT(2x, "ke_start_t = ", I6, ", delta_h = ", F14.8, ", ke_sigma = ",   &
             F14.8)
-8242 FORMAT(2x, "phon_temp = ", F14.8, ", ke_tol = ", F14.8, ", ke_ka = ",F14.8)
+8242 FORMAT(2x, "phon_temp = ", F14.8, ", ke_tol = ", ES9.2, ", ke_ka = ",ES9.2)
+8243 FORMAT(2x, "ke_lmin = ", I6, ", ke_lmax = ")
    return
 end subroutine lionml_write_dull
 
@@ -484,6 +486,8 @@ subroutine lionml_write_style()
    write(*,8806) inputs%phon_temp
    write(*,8807) inputs%ke_tol
    write(*,8808) inputs%ke_ka
+   write(*,8809) inputs%ke_lmin
+   write(*,8810) inputs%ke_lmax
    write(*,8003)
 
    return;
@@ -682,6 +686,8 @@ subroutine lionml_write_style()
 8806 FORMAT(4x,"║  phon_temp           ║  ",9x,F14.8,2x,"║")
 8807 FORMAT(4x,"║  ke_tol              ║  ",9x,F14.8,2x,"║")
 8808 FORMAT(4x,"║  ke_ka               ║  ",9x,F14.8,2x,"║")
+8809 FORMAT(4x,"║  ke_lmin             ║  ",21x,L2,2x,"║")
+8810 FORMAT(4x,"║  ke_lmax             ║  ",21x,L2,2x,"║")
 
 end subroutine lionml_write_style
 

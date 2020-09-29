@@ -14,6 +14,8 @@ module vib_KE_data
    integer              :: hess_norder  = 1
    integer              :: n_vib
    integer              :: ke_start_t   = 100
+   integer              :: ke_lmin      = 0
+   integer              :: ke_lmax      = 0
    LIODBLE              :: delta_h      = 0.01d0 !Amstrongs
    LIODBLE              :: ke_sigma     = 0.1d0
    LIODBLE              :: phon_temp    = 0.00d0
