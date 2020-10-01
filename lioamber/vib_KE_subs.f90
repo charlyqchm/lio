@@ -9,7 +9,7 @@ contains
 subroutine init_vib_calc(natom, M)
    use vib_KE_data    , only : move_atom, atom_mass, mass_w, armonic_vec,      &
                                armonic_freq, nat_move, ke_coef, ke_eorb,       &
-                               ke_calc, ke_lmin, ke_lmax
+                               ke_calc
 
    implicit none
    integer, intent(in) :: natom
@@ -60,10 +60,6 @@ subroutine init_vib_calc(natom, M)
    do ii=1, natom
       mass_w(ii) = 1.0d0 / dsqrt(atom_mass(ii))
    end do
-
-!Selecting relevant levels
-   if(ke_lmin == 0) ke_lmin = 1
-   if(ke_lmax == 0) ke_lmax = M
 
 end subroutine init_vib_calc
 
@@ -798,7 +794,8 @@ end subroutine calc_dHdQ
 
 subroutine init_KE_evol(M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, ke_calc, YCinv_ke,     &
-                          phon_pop, ke_coef, phon_pop, PFW_vec, phon_temp
+                          phon_pop, ke_coef, phon_pop, PFW_vec, phon_temp,     &
+                          ke_lmin, ke_lmax
 
    integer, intent(in)  :: M
    logical              :: file_exists
@@ -810,6 +807,10 @@ subroutine init_KE_evol(M)
 
 
    if (.not.(ke_calc==2)) return
+
+!Selecting relevant levels
+   if(ke_lmin == 0) ke_lmin = 1
+   if(ke_lmax == 0) ke_lmax = M
 
    allocate(ke_eorb(M), ke_coef(M,M))
 
@@ -890,7 +891,7 @@ end subroutine init_KE_evol
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine neglect_terms(dHdQ, M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, PFW_vec, ke_sigma,    &
-                          ke_ind, ke_tol, ke_ka, ke_lmax, ke_lmin
+                          ke_ind, ke_tol, ke_ka, ke_lmax, ke_lmin, ke_degen
 
    integer, intent(in) :: M
    LIODBLE, intent(in) :: dHdQ(M,M,n_vib)
@@ -913,7 +914,8 @@ subroutine neglect_terms(dHdQ, M)
       aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
       aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
-      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
+      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj).and.                        &
+         (dabs(Ea-Eb)>ke_degen)) then
       if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
          count = count + 1
       end if
@@ -943,7 +945,8 @@ subroutine neglect_terms(dHdQ, M)
       aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
 
-      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj)) then
+      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj).and.                        &
+         (dabs(Ea-Eb)>ke_degen)) then
       if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
          PFW_vec(ll) = ke_ka * pi * Fj/wj
          ke_ind(ll)   = (ii-1)+M*(jj-1)+M2*(kk-1)

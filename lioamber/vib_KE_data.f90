@@ -21,6 +21,7 @@ module vib_KE_data
    LIODBLE              :: phon_temp    = 0.00d0
    LIODBLE              :: ke_tol       = 1.0d-6
    LIODBLE              :: ke_ka        = 1.0d0
+   LIODBLE              :: ke_degen     = 0.0d0
    integer, allocatable :: ke_ind(:)
    LIODBLE, allocatable :: atom_mass(:)
    LIODBLE, allocatable :: mass_w(:)
