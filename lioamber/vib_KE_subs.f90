@@ -795,7 +795,7 @@ end subroutine calc_dHdQ
 subroutine init_KE_evol(M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, ke_calc, YCinv_ke,     &
                           phon_pop, ke_coef, phon_pop, PFW_vec, phon_temp,     &
-                          ke_lmin, ke_lmax
+                          ke_lmin, ke_lmax, XCmatC_ke
 
    integer, intent(in)  :: M
    logical              :: file_exists
@@ -860,6 +860,14 @@ subroutine init_KE_evol(M)
    end do
 
    call YCinv_ke%init(M,coef_cmplx)
+
+   do jj=1, M
+   do ii=1, M
+      coef_cmplx(ii,jj) = liocmplx(ke_coef(ii,jj),0.0d0)
+   end do
+   end do
+
+   call XCmatC_ke%init(M, coef_cmplx)
 
    call neglect_terms(dHdQ, M)
    call create_phon_bath(phon_pop, armonic_freq ,phon_temp, n_vib)
@@ -964,7 +972,7 @@ end subroutine neglect_terms
 subroutine ke_rho_evolve(rho_at, M, istep)
    use  vib_KE_data, only: PFW_vec, ke_sigma, phon_pop, ke_eorb,        &
                            armonic_freq, YCinv_ke, ke_calc, ke_ind, ke_sigma,  &
-                           YCinv_ke
+                           YCinv_ke, XCmatC_ke
 
    implicit none
    integer  , intent(in)    :: M, istep
@@ -994,6 +1002,12 @@ subroutine ke_rho_evolve(rho_at, M, istep)
       traza = traza+rho_OM(ii,ii)
    end do
       write(*,*) "Traza=", real(traza)
+
+   !write(*,*) "HOMO ", real(rho_OM(21,21))
+   !write(*,*) "LUMO ", real(rho_OM(22,22))
+   !write(*,*) "LUMO+1 ", real(rho_OM(23,23))
+
+
 
    ! if (mod(istep, 100) == 0) then
    !    do ii=1,M
@@ -1031,13 +1045,13 @@ subroutine ke_rho_evolve(rho_at, M, istep)
    end do
    end do
 
-   ! traza = 0.0d0
-   ! do ii=1,M
-   !    traza = traza+rho_ke(ii,ii)
-   ! end do
-   !    write(*,*) "KE traza=", real(traza)
+   traza = 0.0d0
+   do ii=1,M
+      traza = traza+rho_ke(ii,ii)
+   end do
+      write(*,*) "KE traza=", real(traza)
 
-   call YCinv_ke%change_base(rho_ke, 'inv')
+   call XCmatC_ke%change_base(rho_ke, 'inv')
    rho_at = rho_ke
 
 end subroutine ke_rho_evolve
@@ -1061,7 +1075,7 @@ end subroutine create_phon_bath
 subroutine vib_ke_finalize()
    use vib_KE_data, only: move_atom, atom_mass, mass_w, armonic_freq,          &
                           armonic_vec, ke_coef, ke_eorb, PFW_vec, ke_ind,      &
-                          phon_pop, vib_calc, XCmat_ke, YCinv_ke
+                          phon_pop, vib_calc, XCmat_ke, YCinv_ke, XCmatC_ke
    implicit none
    if (.not.vib_calc) return
 
@@ -1077,6 +1091,7 @@ subroutine vib_ke_finalize()
    if (allocated(phon_pop))     deallocate(phon_pop)
    call XCmat_ke%destroy()
    call YCinv_ke%destroy()
+   call XCmatC_ke%destroy()
 
 end subroutine vib_ke_finalize
 

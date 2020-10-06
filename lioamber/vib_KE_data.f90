@@ -36,5 +36,6 @@ module vib_KE_data
    LIODBLE, parameter   :: freq2cm = 5152.792213813936d0!5141.1182009496200901D0 ! freq to cm-1
    type(cumat_r)        :: XCmat_ke
    type(cumat_x)        :: YCinv_ke
+   type(cumat_x)        :: XCmatC_ke
 
 end module vib_KE_data
