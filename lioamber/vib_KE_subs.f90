@@ -145,7 +145,7 @@ subroutine vibrational_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
 
       do ii = 1, nat_move
       do jj = 1, 3
-         call calc_dSdR(DS_dr(M,M,jj+(ii-1)*3), r, move_atom(ii), jj, M,  &
+         call calc_dSdR(DS_dr(:,:,jj+(ii-1)*3), r, move_atom(ii), jj, M,  &
                         natom)
          DS_dr(M,M,jj+(ii-1)*3) = DS_dr(M,M,jj+(ii-1)*3) / mass_w(move_atom(ii))
       end do
