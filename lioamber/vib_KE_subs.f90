@@ -795,7 +795,7 @@ end subroutine calc_dHdQ
 subroutine init_KE_evol(M)
    use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, ke_calc, YCinv_ke,     &
                           phon_pop, ke_coef, phon_pop, PFW_vec, phon_temp,     &
-                          ke_lmin, ke_lmax, XCmatC_ke
+                          ke_lmin, ke_lmax, XCmatC_ke, gamma_mat
 
    integer, intent(in)  :: M
    logical              :: file_exists
@@ -812,7 +812,7 @@ subroutine init_KE_evol(M)
    if(ke_lmin == 0) ke_lmin = 1
    if(ke_lmax == 0) ke_lmax = M
 
-   allocate(ke_eorb(M), ke_coef(M,M))
+   allocate(ke_eorb(M), ke_coef(M,M), gamma_mat(M,M))
 
 !elecphon.in must contain the number of active vibrations and the coupling terms
    inquire(file='elecphon.in', exist=file_exists)
@@ -898,81 +898,99 @@ end subroutine init_KE_evol
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine neglect_terms(dHdQ, M)
-   use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, PFW_vec, ke_sigma,    &
-                          ke_ind, ke_tol, ke_ka, ke_lmax, ke_lmin, ke_degen
+   use vib_KE_data, only: armonic_freq, n_vib, ke_eorb, PFW_vec, ke_sigma,     &
+                          ke_ind, ke_tol, ke_ka, ke_lmax, ke_lmin, ke_degen,   &
+                          gamma_mat
 
    integer, intent(in) :: M
    LIODBLE, intent(in) :: dHdQ(M,M,n_vib)
    integer             :: count
    integer             :: ii, jj, kk, ll, M2
-   LIODBLE             :: aux1, aux2
+   LIODBLE             :: aux1, aux2, wdos
    LIODBLE             :: Ea, Eb, wj, Fj
    LIODBLE, parameter  :: pi =  3.141592653589793
 
-   M2    = M*M
-   count = 0
+   M2        = M*M
+   count     = 0
+   gamma_mat = 0.0d0
 
-   do ii=1, M
-   do jj=1, M
+   do ii=1, M-1
+   do jj=ii+1, M
+      aux1 = 0.0d0
+      aux2 = 0.0d0
    do kk=1, n_vib
       Ea   = ke_eorb(ii)
       Eb   = ke_eorb(jj)
       wj   = armonic_freq(kk)
       Fj   = dHdQ(ii,jj,kk)**2.0d0
-      aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
-      aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
 
-      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj).and.                        &
-         (dabs(Ea-Eb)>ke_degen)) then
-      if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
-         count = count + 1
+      aux1 = aux1  + pi * Fj * dirac_delta(wj,Eb-Ea,ke_tol)/wj
+      aux2 = aux2  + dirac_delta(wj,Eb-Ea,ke_tol)
+      wdos = wdos + dirac_delta(Eb-Ea,wj,ke_sigma)
+      ! if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj).and.                        &
+      !    (dabs(Ea-Eb)>ke_degen)) then
+      ! if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
+      !    count = count + 1
+      ! end if
+      ! end if
+
+   end do
+      if (dabs(Ea-Eb)>ke_degen) then
+         gamma_mat(ii,jj) = ke_ka * wdos * aux1 / aux2
+         gamma_mat(jj,ii) = gamma_mat(ii,jj)
       end if
-      end if
+   end do
+   end do
+   ! if (count > 0) then
+   !    allocate(PFW_vec(count), ke_ind(count))
+   ! else
+   !    write(*,*) "PFW_vec can't be created, please encrease the broadening"
+   !    write(*,*) "of the Dirac delta or the threshold."
+   !    stop
+   ! end if
 
-   end do
-   end do
-   end do
-   if (count > 0) then
-      allocate(PFW_vec(count), ke_ind(count))
-   else
-      write(*,*) "PFW_vec can't be created, please encrease the broadening"
-      write(*,*) "of the Dirac delta or the threshold."
-      stop
-   end if
+   write(*,*) "ELECTRON-PHONON TERMS ii jj gamma"
 
-   write(*,*) "ELECTRON-PHONON TERMS ii jj kk"
-   ll = 1
-   do ii=1, M
-   do jj=1, M
-   do kk=1, n_vib
-      Ea   = ke_eorb(ii)
-      Eb   = ke_eorb(jj)
-      wj   = armonic_freq(kk)
-      Fj   = dHdQ(ii,jj,kk)**2.0d0
-      aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
-      aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
-
-
-      if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj).and.                        &
-         (dabs(Ea-Eb)>ke_degen)) then
-      if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
-         PFW_vec(ll) = ke_ka * pi * Fj/wj
-         ke_ind(ll)   = (ii-1)+M*(jj-1)+M2*(kk-1)
-         write(*,*) ii, jj, kk, PFW_vec(ll)
-         ll = ll + 1
-      end if
-      end if
-
+   do ii=1, M-1
+   do jj=ii+1, M
+      write(*,*) ii, jj, gamma_mat(ii,jj)
    end do
    end do
-   end do
+
+   ! ll = 1
+   ! do ii=1, M
+   ! do jj=1, M
+   ! do kk=1, n_vib
+   !    Ea   = ke_eorb(ii)
+   !    Eb   = ke_eorb(jj)
+   !    wj   = armonic_freq(kk)
+   !    Fj   = dHdQ(ii,jj,kk)**2.0d0
+   !    aux1 = pi * Fj * dirac_delta(Ea,Eb,wj,ke_sigma)/wj
+   !    aux2 = pi * Fj * dirac_delta(Ea,Eb,-wj,ke_sigma)/wj
+   !
+   !
+   !    if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj).and.                        &
+   !       (dabs(Ea-Eb)>ke_degen)) then
+   !    if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
+   !       PFW_vec(ll) = ke_ka * pi * Fj/wj
+   !       ke_ind(ll)   = (ii-1)+M*(jj-1)+M2*(kk-1)
+   !       write(*,*) ii, jj, kk, PFW_vec(ll)
+   !       ll = ll + 1
+   !    end if
+   !    end if
+   !
+   ! end do
+   ! end do
+   ! end do
+
+
 
 end subroutine neglect_terms
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine ke_rho_evolve(rho_at, M, istep)
    use  vib_KE_data, only: PFW_vec, ke_sigma, phon_pop, ke_eorb,        &
                            armonic_freq, YCinv_ke, ke_calc, ke_ind, ke_sigma,  &
-                           YCinv_ke, XCmatC_ke
+                           YCinv_ke, XCmatC_ke, phon_temp, gamma_mat
 
    implicit none
    integer  , intent(in)    :: M, istep
@@ -1015,22 +1033,42 @@ subroutine ke_rho_evolve(rho_at, M, istep)
    !    end do
    ! end if
 
-   do ll=1, len_PFW
-      kk = int(ke_ind(ll)/M2)+1
-      jj = int((ke_ind(ll)-M2*(kk-1))/M)+1
-      ii = ke_ind(ll)-M2*(kk-1)-M*(jj-1)+1
+   ! do ll=1, len_PFW
+   !    kk = int(ke_ind(ll)/M2)+1
+   !    jj = int((ke_ind(ll)-M2*(kk-1))/M)+1
+   !    ii = ke_ind(ll)-M2*(kk-1)-M*(jj-1)+1
+   !
+   !    Ea   = ke_eorb(ii)
+   !    Eb   = ke_eorb(jj)
+   !    wj   = armonic_freq(kk)
+   !    exp1 = dirac_delta(Ea,Eb,wj,ke_sigma)
+   !    exp2 = dirac_delta(Ea,Eb,-wj,ke_sigma)
+   !    Nj   = phon_pop(kk)
+   !    rhoa = dble(rho_OM(ii,ii))/2.0d0
+   !    rhob = dble(rho_OM(jj,jj))/2.0d0
+   !
+   !    eta(ii)   = eta(ii) + PFW_vec(ll)*((Nj+rhob)*exp1+(Nj-rhob+1)*exp2)
+   !    lambda(ii)= lambda(ii) + PFW_vec(ll)*rhob*((Nj+1)*exp1 + Nj*exp2)
+   ! end do
 
+   do ii=1, M
+   do jj=1, M
       Ea   = ke_eorb(ii)
       Eb   = ke_eorb(jj)
-      wj   = armonic_freq(kk)
-      exp1 = dirac_delta(Ea,Eb,wj,ke_sigma)
-      exp2 = dirac_delta(Ea,Eb,-wj,ke_sigma)
-      Nj   = phon_pop(kk)
+      wj   = dabs(Eb-Ea)
+      Nj   = 1.0d0 / (dexp(wj/phon_temp)-1.0d0)
       rhoa = dble(rho_OM(ii,ii))/2.0d0
       rhob = dble(rho_OM(jj,jj))/2.0d0
 
-      eta(ii)   = eta(ii) + PFW_vec(ll)*((Nj+rhob)*exp1+(Nj-rhob+1)*exp2)
-      lambda(ii)= lambda(ii) + PFW_vec(ll)*rhob*((Nj+1)*exp1 + Nj*exp2)
+      if (Eb>Ea) then
+         eta(ii)    = eta(ii)    + gamma_mat(ii,jj) * (Nj+rhob)
+         lambda(ii) = lambda(ii) + gamma_mat(ii,jj) * rhob*(Nj+1)
+      else if(Eb<Ea) then
+         eta(ii)    = eta(ii)    + gamma_mat(ii,jj) * (Nj-rhob+1)
+         lambda(ii) = lambda(ii) + gamma_mat(ii,jj) * rhob*Nj
+      end if
+
+   end do
    end do
 
    do jj=1, M
@@ -1096,15 +1134,15 @@ subroutine vib_ke_finalize()
 end subroutine vib_ke_finalize
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
-function dirac_delta(Ea,Eb,wj,sigma) result(dd)
+function dirac_delta(xi,mu,sigma) result(dd)
    implicit none
-   LIODBLE, intent(in) :: Ea, Eb, wj, sigma
+   LIODBLE, intent(in) :: xi, mu, sigma
    LIODBLE             :: norm, arg
    LIODBLE             :: dd
    LIODBLE, parameter  :: pi =  3.141592653589793
 
    norm = 1.0d0 / dsqrt(2.0d0 * pi * sigma**2.0d0)
-   arg  = - (Ea-Eb+wj)**2.0d0/(2.0d0 * sigma**2.0d0)
+   arg  = - (xi-mu)**2.0d0/(2.0d0 * sigma**2.0d0)
    dd   = norm * dexp(arg)
 
 end function dirac_delta

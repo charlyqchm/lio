@@ -31,6 +31,7 @@ module vib_KE_data
    LIODBLE, allocatable :: ke_eorb(:)
    LIODBLE, allocatable :: PFW_vec(:)
    LIODBLE, allocatable :: phon_pop(:)
+   LIODBLE, allocatable :: gamma_mat(:,:)
    LIODBLE, parameter   :: emass_d = 5.485799111d-4 !Electron mass in
                                                          !Daltons
    LIODBLE, parameter   :: freq2cm = 5152.792213813936d0!5141.1182009496200901D0 ! freq to cm-1
