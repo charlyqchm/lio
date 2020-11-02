@@ -147,11 +147,19 @@ subroutine vibrational_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
       do jj = 1, 3
          call calc_dSdR(DS_dr(:,:,jj+(ii-1)*3), r, move_atom(ii), jj, M,  &
                         natom)
-         DS_dr(M,M,jj+(ii-1)*3) = DS_dr(M,M,jj+(ii-1)*3) / mass_w(move_atom(ii))
+         DS_dr(:,:,jj+(ii-1)*3) = DS_dr(:,:,jj+(ii-1)*3) / mass_w(move_atom(ii))
       end do
       end do
 
       Sinv = inv_mat(Smat)
+
+      do ii= 1, M
+      do jj= 1, M
+      do kk= 1, 3*nat_move
+         write(888,*) DS_dr(ii,jj,kk)
+      end do
+      end do
+      end do
 
    end if
 
@@ -259,7 +267,7 @@ subroutine vibrational_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
    hess_mat = hessp_mat
    call diagonalize_hessian(nat_move, hess_mat, armonic_freq, armonic_vec)
 
-!Calculating and storing dH/dQ onli for ke_calc = 1
+!Calculating and storing dH/dQ only for ke_calc = 1
    call calc_dHdQ(Dfock_a, fock0, Sinv, DS_dr, armonic_vec, M, nat_move)
 
 !Changing units and printing frequencies:
@@ -728,6 +736,7 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
    do ii=1, M
    do jj=1, M
       dH_mat(ii,jj,rr) = Dfock(ii,jj,rr)
+      write(777,*) dH_mat(ii,jj,rr)
       do kk=1, M
       do ll=1, M
          dH_mat(ii,jj,rr) = dH_mat(ii,jj,rr) -                                 &
@@ -769,6 +778,7 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
    do jj=1, M
    do ii=1, M
       write(10101,*) dHdQ(ii,jj,kk)
+      write(999,*) dHdQ(ii,jj,kk)
    end do
    end do
    end do
@@ -918,6 +928,7 @@ subroutine neglect_terms(dHdQ, M)
    do jj=ii+1, M
       aux1 = 0.0d0
       aux2 = 0.0d0
+      wdos = 0.0d0
    do kk=1, n_vib
       Ea   = ke_eorb(ii)
       Eb   = ke_eorb(jj)
@@ -1141,10 +1152,10 @@ function dirac_delta(xi,mu,sigma) result(dd)
    LIODBLE             :: dd
    LIODBLE, parameter  :: pi =  3.141592653589793
 
-   norm = 1.0d0 / dsqrt(2.0d0 * pi * sigma**2.0d0)
-   arg  = - (xi-mu)**2.0d0/(2.0d0 * sigma**2.0d0)
-   dd   = norm * dexp(arg)
-
+   ! norm = 1.0d0 / dsqrt(2.0d0 * pi * sigma**2.0d0)
+   ! arg  = - (xi-mu)**2.0d0/(2.0d0 * sigma**2.0d0)
+   ! dd   = norm * dexp(arg)
+   dd = 1/pi * sigma/((xi-mu)**2+sigma**2)
 end function dirac_delta
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
