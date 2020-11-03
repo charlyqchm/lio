@@ -147,19 +147,11 @@ subroutine vibrational_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
       do jj = 1, 3
          call calc_dSdR(DS_dr(:,:,jj+(ii-1)*3), r, move_atom(ii), jj, M,  &
                         natom)
-         DS_dr(:,:,jj+(ii-1)*3) = DS_dr(:,:,jj+(ii-1)*3) / mass_w(move_atom(ii))
+         DS_dr(:,:,jj+(ii-1)*3) = DS_dr(:,:,jj+(ii-1)*3) * mass_w(move_atom(ii))
       end do
       end do
 
       Sinv = inv_mat(Smat)
-
-      do ii= 1, M
-      do jj= 1, M
-      do kk= 1, 3*nat_move
-         write(888,*) DS_dr(ii,jj,kk)
-      end do
-      end do
-      end do
 
    end if
 
@@ -251,10 +243,10 @@ subroutine vibrational_calc(E, rho_aop, fock_aop,rho_bop, fock_bop )
          if (hess_norder == 2) then
             Dfock_a(:,:,kk) = (8.0d0*Df_Dr(:,:,1) - 8.0d0*Df_Dr(:,:,-1) +      &
                                Df_Dr(:,:,-2) - Df_Dr(:,:,2))                   &
-                              /(12.0d0 * dhau * mass_w(iat))
+                              /(12.0d0 * dhau)
          else
             Dfock_a(:,:,kk) = (Df_Dr(:,:,1) - Df_Dr(:,:,-1))*0.5d0             &
-                              /(dhau * mass_w(iat))
+                              /(dhau)
          end if
       end if
 
@@ -568,7 +560,6 @@ subroutine diagonalize_hessian(natom, hess_mat, armonic_freq, armonic_vec)
                IWORK2,LIWORK,INFO)
 !descaling
    armonic_freq = armonic_freq/1000d0
-   armonic_vec  = armonic_vec/1000d0
 
    deallocate( WORK1, IWORK1, WORK2, IWORK2 )
 
@@ -590,7 +581,7 @@ function gigj_int(ea, eb, ra, rb, iang, jang)
    LIODBLE             :: int_omega
    LIODBLE             :: sqep
    LIODBLE             :: aux1
-   LIODBLE, parameter  :: sqpi =  1.7724538509055160272981674833411
+   LIODBLE, parameter  :: sqpi =  1.7724538509055160272981674833411d0
    integer             :: ii
 
    ep   = ea + eb
@@ -620,12 +611,12 @@ function gigj_int(ea, eb, ra, rb, iang, jang)
          aux1 = 1.0d0 + 2.0d0 * ep * (ra(ii) - rp(ii))**2.0d0
          int_omega = int_omega * Kab(ii) * sqpi / (2.0d0*sqep**3.0d0) * aux1
       else if (iang(ii)==1 .and. jang(ii)==2) then
-         aux1 = 2.0d0 * ep * rp(ii) *(rb(ii) - rp(ii)**2.0d0) -                &
+         aux1 = 2.0d0 * ep * rp(ii) *(rb(ii) - rp(ii))**2.0d0 -                &
                 ra(ii) * (1.0d0 + 2.0d0 * ep * (rb(ii)-rp(ii))**2.0d0) +       &
                 3.0d0 * rp(ii) - 2.0d0 * rb(ii)
          int_omega = int_omega * Kab(ii) * sqpi / (2.0d0*sqep**3.0d0) * aux1
       else if (iang(ii)==2 .and. jang(ii)==1) then
-         aux1 = 2.0d0 * ep * rp(ii) *(ra(ii) - rp(ii)**2.0d0) -                &
+         aux1 = 2.0d0 * ep * rp(ii) *(ra(ii) - rp(ii))**2.0d0 -                &
                 rb(ii) * (1.0d0 + 2.0d0 * ep * (ra(ii)-rp(ii))**2.0d0) +       &
                 3.0d0 * rp(ii) - 2.0d0 * ra(ii)
          int_omega = int_omega * Kab(ii) * sqpi / (2.0d0*sqep**3.0d0) * aux1
@@ -699,7 +690,7 @@ subroutine calc_dSdR(dSdR_mat, rn, atom, axis, M_in, ntatom)
                                      rn(atj,:), iang, jang)
                dSdR_mat(ifunct,jfunct) = dSdR_mat(ifunct,jfunct) + ccoef * aux1
             end if
-
+            if (ifunct==jfunct) write(222,*) ifunct, jfunct, dSdR_mat(ifunct,jfunct)
          end do
          end do
       end if
@@ -724,6 +715,7 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
    LIODBLE             :: dHdQ(M,M,3*nat_move)
    LIODBLE             :: dH_mat(M,M,3*nat_move)
    LIODBLE             :: freq(3*nat_move)
+   LIODBLE, parameter  :: dalt_au = 0.023421782790063343d0
    integer             :: ii, jj, kk, ll, rr, ind_i
 
    if (ke_calc /=1) return
@@ -736,7 +728,6 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
    do ii=1, M
    do jj=1, M
       dH_mat(ii,jj,rr) = Dfock(ii,jj,rr)
-      write(777,*) dH_mat(ii,jj,rr)
       do kk=1, M
       do ll=1, M
          dH_mat(ii,jj,rr) = dH_mat(ii,jj,rr) -                                 &
@@ -750,7 +741,7 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
 
    do jj=1, nat_move*3
    do ii=1, nat_move*3
-      dHdQ(:,:,jj) = dHdQ(:,:,jj) + dH_mat(:,:,ii)*Lmat(ii,jj)
+      dHdQ(:,:,jj) = dHdQ(:,:,jj) + dH_mat(:,:,ii)*Lmat(ii,jj) * dalt_au
    end do
    end do
 
@@ -761,7 +752,7 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
    n_vib = 0
    do ii = 1, 3*nat_move
       freq(ii) = sign(1.0d0,armonic_freq(ii)) * dsqrt(dabs(armonic_freq(ii)))* &
-                 0.023421782790063343d0
+                 dalt_au
       if (freq(ii) > 1.0d-05) n_vib = n_vib + 1
    end do
 
@@ -778,7 +769,6 @@ subroutine calc_dHdQ(Dfock, fock0, Sinv, dSdR, Lmat, M, nat_move)
    do jj=1, M
    do ii=1, M
       write(10101,*) dHdQ(ii,jj,kk)
-      write(999,*) dHdQ(ii,jj,kk)
    end do
    end do
    end do
