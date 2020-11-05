@@ -838,10 +838,12 @@ subroutine init_KE_evol(M)
    end do
    end do
 
+   write(*,*) "----------EIGENVALUES-------------"
    do ii=1, M
       read(10101,*) ke_eorb(ii)
+      write(*,*) ii, ke_eorb(ii)
    end do
-
+   write(*,*) "----------------------------------"
    do jj=1, M
    do ii=1, M
       read(10101,*) ke_coef(ii,jj)
@@ -925,7 +927,7 @@ subroutine neglect_terms(dHdQ, M)
       wj   = armonic_freq(kk)
       Fj   = dHdQ(ii,jj,kk)**2.0d0
 
-      aux1 = aux1  + pi * Fj * dirac_delta(wj,Eb-Ea,ke_tol)/wj
+      aux1 = aux1  + pi * Fj * dirac_delta(wj,Eb-Ea,ke_tol)/dabs(Eb-Ea)
       aux2 = aux2  + dirac_delta(wj,Eb-Ea,ke_tol)
       wdos = wdos + dirac_delta(Eb-Ea,wj,ke_sigma)
       ! if((aux1>ke_tol.or.aux2>ke_tol).and.(ii/=jj).and.                        &
@@ -950,13 +952,13 @@ subroutine neglect_terms(dHdQ, M)
    !    stop
    ! end if
 
-   write(*,*) "ELECTRON-PHONON TERMS ii jj gamma"
-
-   do ii=1, M-1
-   do jj=ii+1, M
-      write(*,*) ii, jj, gamma_mat(ii,jj)
-   end do
-   end do
+   ! write(*,*) "ELECTRON-PHONON TERMS ii jj gamma"
+   !
+   ! do ii=1, M-1
+   ! do jj=ii+1, M
+   !    write(*,*) ii, jj, gamma_mat(ii,jj)
+   ! end do
+   ! end do
 
    ! ll = 1
    ! do ii=1, M
@@ -1028,11 +1030,12 @@ subroutine ke_rho_evolve(rho_at, M, istep)
 
 
 
-   ! if (mod(istep, 100) == 0) then
-   !    do ii=1,M
-   !       write(777,*) real(rho_OM(ii,ii))
-   !    end do
-   ! end if
+   if (mod(istep, 1000) == 0 .or. istep == 100) then
+      write(777,*) "STEP", istep
+      do ii=1,M
+         write(777,*) real(rho_OM(ii,ii))
+      end do
+   end if
 
    ! do ll=1, len_PFW
    !    kk = int(ke_ind(ll)/M2)+1
