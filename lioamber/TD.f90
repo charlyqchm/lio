@@ -234,7 +234,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       call rho_aop%check_idempotency_ON(OPEN)
       if (OPEN) call rho_bop%check_idempotency_ON(OPEN)
    endif
-   
+
    ! Precalculate three-index (two in MO basis, one in density basis) matrix
    ! used in density fitting /Coulomb F element calculation here (t_i in Dunlap)
    call int2(Gmat_vec, Ginv_vec, r, d, ntatom)
@@ -1096,6 +1096,9 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    use propagators     , only: predictor, magnus
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_r, cumat_x
+   use vib_KE_data     , only: ke_calc, ke_start_t
+   use vib_KE_subs     , only: ke_rho_evolve
+
    implicit none
 
 
@@ -1113,6 +1116,8 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    TDCOMPLEX, intent(inout)  :: rhonew(M_f,M_f,dim3)
    TDCOMPLEX, allocatable     :: rho(:,:,:), rho_aux(:,:,:)
    LIODBLE, allocatable        :: fock_aux(:,:,:), fock(:,:,:)
+   TDCOMPLEX                  :: traza
+   integer                    :: ii
 
    allocate(rho(M_f,M_f,dim3), rho_aux(M_f,M_f,dim3),                      &
             fock_aux(M_f,M_f, dim3), fock(M_f, M_f, dim3))
@@ -1181,6 +1186,19 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
       write(*,*) 'Transport TB: Adding driving term to the density.'
       rhonew = rhonew - rho_aux
    endif
+
+   if (ke_calc==2 .and. istep >= ke_start_t) then
+      call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
+      call ke_rho_evolve(rho_aux(:,:,1), M, istep)
+      call Ymat%change_base(rho_aux(:,:,1),'dir')
+      traza = 0.0d0
+      do ii=1, M
+         traza = traza + rho_aux(ii,ii,1)
+      end do
+      write(*,*) "Traza OrtKe=", real(traza)
+       rhonew = rhonew + real(dt_magnus,COMPLEX_SIZE/2) * rho_aux
+   end if
+
 
    ! TBDFT: rhonew in AO is store for charge calculations of TBDFT
    if (tbdft_calc == 1) then

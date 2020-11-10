@@ -939,8 +939,10 @@ subroutine neglect_terms(dHdQ, M)
 
    end do
       if (dabs(Ea-Eb)>ke_degen) then
+      if((ii>=ke_lmin.and.jj>=ke_lmin).and.(ii<=ke_lmax.and.jj<=ke_lmax)) then
          gamma_mat(ii,jj) = ke_ka * wdos * aux1 / aux2
          gamma_mat(jj,ii) = gamma_mat(ii,jj)
+      end if
       end if
    end do
    end do
@@ -1030,10 +1032,10 @@ subroutine ke_rho_evolve(rho_at, M, istep)
 
 
 
-   if (mod(istep, 1000) == 0 .or. istep == 100) then
+   if (mod(istep, 100) == 0 .or. istep == 210) then
       write(777,*) "STEP", istep
       do ii=1,M
-         write(777,*) real(rho_OM(ii,ii))
+         write(777,*) ii, real(rho_OM(ii,ii))
       end do
    end if
 
