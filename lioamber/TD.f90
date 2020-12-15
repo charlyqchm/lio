@@ -53,7 +53,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    use garcha_mod    , only: NBCH, propagator, Iz, igrid2, r, nsol, pc, Smat, &
                              MEMO, ntatom, sqsm, OPEN, natom, d, rhoalpha,    &
                              rhobeta, Fmat_vec, Fmat_vec2, Ginv_vec, Hmat_vec,&
-                             Gmat_vec, Pmat_vec, NCO, nunp
+                             Gmat_vec, Pmat_vec, NCO, nunp, MO_coef_at
    use basis_data    , only: M, Nuc, MM
    use basis_subs    , only: neighbour_list_2e
    use td_data       , only: td_rst_freq, tdstep, ntdstep, tdrestart, &
@@ -220,7 +220,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
    ! Diagonalizes Smat and calculates the base change matrices (x,y,Xtrans)
    call td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
 
-   call ceed_init(M, OPEN, r, d, natom, ntatom, propagator)
+   call ceed_init(M, OPEN, r, d, natom, ntatom, propagator, MO_coef_at)
 
    call rho_aop%BChange_AOtoON(Ymat, M_f)
    if (OPEN) call rho_bop%BChange_AOtoON(Ymat, M_f)
@@ -233,7 +233,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       call rho_aop%check_idempotency_ON(OPEN)
       if (OPEN) call rho_bop%check_idempotency_ON(OPEN)
    endif
-   
+
    ! Precalculate three-index (two in MO basis, one in density basis) matrix
    ! used in density fitting /Coulomb F element calculation here (t_i in Dunlap)
    call int2(Gmat_vec, Ginv_vec, r, d, ntatom)
@@ -646,7 +646,7 @@ subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    enddo
 
    ! CEED: X_min most be stored for CEED no matter the kind of calculation
-   if (ceed_calc) call Xmat_ceed%init(M, X_min)
+   if (ceed_calc == 1) call Xmat_ceed%init(M, X_min)
    ! TBDFT: Xmat and Ymat are adapted for TBDFT
    call getXY_TBDFT(M, X_min, Y_min, X_mat, Y_mat)
 
@@ -830,13 +830,13 @@ subroutine td_population(M, natom, rho, Smat_init, Nuc, Iz, open_shell, &
    if (.not. (mod(nstep, do_pop) == 0)) return
    if ((.not. (mod(nstep, do_pop*10) == 0)) .and. (propagator > 1) &
        .and. (is_lpfrg)) return
-       
+
    allocate(true_iz(size(Iz,1)))
    true_iz = Iz
-   if (ecpmode) true_iz = IzECP      
+   if (ecpmode) true_iz = IzECP
 
    allocate(real_rho(M,M))
-   if (open_shell) then  
+   if (open_shell) then
       allocate(real_rho_b(M,M))
 
       do icount = 1, M
@@ -868,11 +868,11 @@ subroutine td_orbital_population(rho_alf, rho_bet, open_shell, nstep, &
    integer       , intent(in)    :: nstep, propagator, do_pop, basis_m
    logical       , intent(in)    :: open_shell, is_lpfrg
    type(operator), intent(inout) :: rho_alf, rho_bet
-  
+
    TDCOMPLEX , allocatable :: tmp_mat(:,:)
    LIODBLE   , allocatable :: eivec(:,:), eival(:), eivec2(:,:), eival2(:)
 
- 
+
    if (do_pop == 0) return
    if (.not. (mod(nstep, do_pop) == 0)) return
    if ((.not. (mod(nstep, do_pop*10) == 0)) .and. (propagator > 1) &
@@ -902,7 +902,7 @@ subroutine td_orbital_population(rho_alf, rho_bet, open_shell, nstep, &
 
    deallocate(eival, eivec, tmp_mat)
    if (open_shell) deallocate(eival2, eivec2)
-   
+
 end subroutine td_orbital_population
 
 subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time)
@@ -965,7 +965,6 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    type(operator), intent(inout) :: fock_aop, rho_aop
    type(operator), intent(inout), optional :: fock_bop, rho_bop
 
-   LIODBLE  , allocatable :: fock_aux(:,:,:)
    TDCOMPLEX, allocatable :: rho(:,:,:), rho_aux(:,:,:)
    TDCOMPLEX              :: liocmplx
 
@@ -1008,18 +1007,14 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    call g2g_timer_stop('commutator')
 
    !Including CEED term
-   if(ceed_calc) then
-      allocate(fock_aux(M_f,M_f,dim3))
-
-      call fock_aop%Gets_data_ON(fock_aux(:,:,1))
-      call rho_aop%Gets_dataC_ON(rho_aux(:,:,1))
-      if (OPEN) then
-         call fock_bop%Gets_data_ON(fock_aux(:,:,2))
-         call rho_bop%Gets_dataC_ON(rho_aux(:,:,2))
+   if(ceed_calc/=0) then
+      if (.not. OPEN) then
+         call ceed_fock_calculation(fock_aop, rho_aop, M, istep,               &
+                                    dim3, OPEN, rho_aux)
+      else
+         call ceed_fock_calculation(fock_aop, rho_aop, M, istep,               &
+                                    dim3, OPEN, rho_aux, fock_bop, rho_bop)
       end if
-      call ceed_fock_calculation(fock_aux(MTB+1:M_f,MTB+1:M_f,:),              &
-                                 rho_aux(MTB+1:M_f,MTB+1:M_f,:), M, istep,     &
-                                 dim3, OPEN)
       if ((td_eu_step /= 0).and.(mod(istep, td_eu_step)==0)) then
          rhonew = rhonew + real(dt_lpfrg,COMPLEX_SIZE/2) * rho_aux
       else
@@ -1027,7 +1022,6 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
                            rho_aux
       end if
 
-      deallocate(fock_aux)
    end if
 
    !Transport: Add the driving term to the propagation.
@@ -1057,7 +1051,7 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    endif
 
    deallocate(rho, rho_aux)
-   
+
 end subroutine td_verlet
 
 subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
@@ -1070,6 +1064,9 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
    use propagators     , only: predictor, magnus
    use typedef_operator, only: operator
    use typedef_cumat   , only: cumat_r, cumat_x
+   use ceed_data       , only: ceed_calc
+   use ceed_subs       , only: ceed_fock_calculation
+
    implicit none
 
 
@@ -1155,6 +1152,18 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
       write(*,*) 'Transport TB: Adding driving term to the density.'
       rhonew = rhonew - rho_aux
    endif
+
+
+   if(ceed_calc/=0) then
+      if (.not. OPEN) then
+         call ceed_fock_calculation(fock_aop, rho_aop, M, istep,               &
+                                    dim3, OPEN, rho_aux)
+      else
+         call ceed_fock_calculation(fock_aop, rho_aop, M, istep,               &
+                                    dim3, OPEN, rho_aux,fock_bop, rho_bop)
+      end if
+      rhonew = rhonew + real(dt_magnus,COMPLEX_SIZE/2) * rho_aux
+   end if
 
    ! TBDFT: rhonew in AO is store for charge calculations of TBDFT
    if (tbdft_calc == 1) then

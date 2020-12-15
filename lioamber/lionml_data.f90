@@ -234,7 +234,7 @@ module lionml_data
       ! DFTD3
       logical          :: dftd3
       ! CEED
-      logical          :: ceed_calc
+      integer          :: ceed_calc
       integer          :: ceed_td_step
       LIODBLE          :: k_ceed
    end type lio_input_data
@@ -284,7 +284,7 @@ subroutine get_namelist(lio_in)
    lio_in%timedep          = timedep         ; lio_in%tdrestart  = tdrestart
    lio_in%writedens        = writedens       ; lio_in%field      = field
    lio_in%td_do_pop        = td_do_pop       ; lio_in%td_eu_step = td_eu_step
-   lio_in%td_do_opop       = td_do_opop      ; 
+   lio_in%td_do_opop       = td_do_opop      ;
    lio_in%td_rho_purify    = td_rho_purify   ;
 
    ! ECP

@@ -314,7 +314,7 @@ subroutine lionml_write_dull()
 ! VdW
 8220 FORMAT(2x, "dftd3 = ", L2)
 ! CEED
-8230 FORMAT(2x, "ceed_calc = ", L2 , ", ceed_td_step = ", I6 , ", k_ceed = ",  &
+8230 FORMAT(2x, "ceed_calc = ", I6 , ", ceed_td_step = ", I6 , ", k_ceed = ",  &
             ES9.2)
    return
 end subroutine lionml_write_dull
@@ -646,7 +646,7 @@ subroutine lionml_write_style()
 8601 FORMAT(4x,"║  pdos_calc           ║  ",21x,L2,2x,"║")
 8602 FORMAT(4x,"║  pdos_allb           ║  ",21x,L2,2x,"║")
 !CEED
-8700 FORMAT(4x,"║  ceed_calc           ║  ",21x,L2,2x,"║")
+8700 FORMAT(4x,"║  ceed_calc           ║  ",18x,I5,2x,"║")
 8701 FORMAT(4x,"║  ceed_td_step        ║  ",18x,I5,2x,"║")
 8702 FORMAT(4x,"║  k_ceed              ║  ",9x,F14.8,2x,"║")
 end subroutine lionml_write_style

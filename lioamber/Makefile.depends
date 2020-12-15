@@ -375,7 +375,7 @@ OBJECTS += typedef_operator.o
 #
 modusrs :=
 modusrs += SCF.o converger_subs.o TD.o geometry_optim.o liomain.o
-modusrs += tbdft_subs.o ceed_data.o
+modusrs += tbdft_subs.o ceed_data.o ceed_subs.o
 $(modusrs:%.o=$(OBJPATH)/%.o) : ${OBJPATH}/typedef_operator.mod
 ################################################################################
 OBJECTS += mask_ecp.o
