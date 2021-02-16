@@ -593,7 +593,7 @@ end subroutine td_integral_1e
 subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    use typedef_cumat, only: cumat_r, cumat_x
    use tbdft_subs   , only: getXY_TBDFT
-   use ceed_data    , only: ceed_calc, Xmat_ceed
+   use ceed_data    , only: ceed_calc, Xmat_ceed, Xtrans_ceed
 
    implicit none
    integer      , intent(in)    :: M_f, M
@@ -646,7 +646,7 @@ subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    enddo
 
    ! CEED: X_min most be stored for CEED no matter the kind of calculation
-   if (ceed_calc == 1) call Xmat_ceed%init(M, X_min)
+   if (ceed_calc == 1) call Xmat_ceed%init(M_f, X_min)
    ! TBDFT: Xmat and Ymat are adapted for TBDFT
    call getXY_TBDFT(M, X_min, Y_min, X_mat, Y_mat)
 
@@ -665,6 +665,8 @@ subroutine td_overlap_diag(M_f, M, Smat, Xmat, Xtrans, Ymat)
    enddo
    enddo
    call Xtrans%init(M_f, aux_mat)
+
+   if (ceed_calc == 2) call Xtrans_ceed%init(M, aux_mat)
 
    do icount = 1, M_f
    do jcount = 1, M_f

@@ -8,7 +8,7 @@ subroutine ceed_init(M, open_shell, r, d, natom, ntatom, propagator, coef_at)
 ! This subroutine initialize the variables for CEED calculations
    use ceed_data, only: ceed_calc, dip_ceed_op, d2ip_ceed_op,                  &
                         fock_ceed_op, d2dip_ceed, Xmat_ceed, d2mu_vec,         &
-                        Xmat_ceed, YCinv_ceed
+                        Xmat_ceed, YCinv_ceed, Xtrans_ceed, C_ON_mat_ceed
    use faint_cpu , only: intfld
 
 
@@ -25,7 +25,7 @@ subroutine ceed_init(M, open_shell, r, d, natom, ntatom, propagator, coef_at)
    integer              :: MM
    LIODBLE              :: vec_aux(3)
    LIODBLE              :: aux_mat1(M,M)
-   TDCOMPLEX            :: aux_Cmat1(M,M)
+   TDCOMPLEX            :: aux_Cmat1(M,M), aux_Cmat2(M,M)
    LIODBLE, allocatable :: dip_array(:)
    LIODBLE, allocatable :: dip_mat_aux(:,:)
    TDCOMPLEX            :: liocmplx
@@ -61,6 +61,8 @@ subroutine ceed_init(M, open_shell, r, d, natom, ntatom, propagator, coef_at)
       end do
       end do
       call YCinv_ceed%init(M,aux_Cmat1)
+      call Xtrans_ceed%multiply(aux_Cmat2, aux_Cmat1)
+      call C_ON_mat_ceed%init(M, aux_Cmat2)
 
    end if
 
@@ -77,6 +79,8 @@ subroutine ceed_init(M, open_shell, r, d, natom, ntatom, propagator, coef_at)
    end do
 
    deallocate(dip_array, dip_mat_aux)
+   call Xtrans_ceed%destroy()
+
 end subroutine ceed_init
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
@@ -93,7 +97,7 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
 
    use ceed_data, only: ceed_calc, dip_ceed_op, d2ip_ceed_op, d2dip_ceed,     &
                          A_ceed, fock_ceed_op, k_ceed, ceed_td_step, d2mu_vec, &
-                         Xmat_ceed, YCinv_ceed
+                         Xmat_ceed, YCinv_ceed, C_ON_mat_ceed
    use typedef_operator, only: operator
    implicit none
 
@@ -136,6 +140,7 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
          call YCinv_ceed%change_base(rho_aux(:,:,2), 'dir')
       end if
    end if
+
    aux_mat3 = 0.0d0
    aux_mat4 = liocmplx(0.0d0,0.0d0)
 
@@ -157,18 +162,18 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
          end do
 !###############################################################################
 !testeando dipolo
-         aux2 = 0.0d0
-
-         if (ii==1) then
-            call dip_ceed_op(ii)%Gets_data_ON(aux_mat5(:,:,ss))
-            do jj=1, M
-            do kk=1, M
-               aux2 = aux2 + dble(rho_aux(jj,kk,ss) * aux_mat5(kk,jj,ss))
-            end do
-            end do
-            if (ss==1) write(777,*) aux2
-            if (ss==2) write(888,*) aux2
-         end if
+         ! aux2 = 0.0d0
+         !
+         ! if (ii==1) then
+         !    call dip_ceed_op(ii)%Gets_data_ON(aux_mat5(:,:,ss))
+         !    do jj=1, M
+         !    do kk=1, M
+         !       aux2 = aux2 + dble(rho_aux(jj,kk,ss) * aux_mat5(kk,jj,ss))
+         !    end do
+         !    end do
+         !    if (ss==1) write(777,*) aux2
+         !    if (ss==2) write(888,*) aux2
+         ! end if
 
 !###############################################################################
 
@@ -182,8 +187,8 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
          else if (ceed_calc==2) then
             do jj=1,M
             do kk=1,M
-               aux1 = d2dip_ceed(jj,1) + d2dip_ceed(kk,1)
-               if (open_shell) aux1 = aux1 + d2dip_ceed(jj,2) + d2dip_ceed(kk,2)
+               aux1 = d2mu_vec(jj,1) + d2mu_vec(kk,1)
+               if (open_shell) aux1 = aux1 + d2mu_vec(jj,2) + d2mu_vec(kk,2)
                aux_mat1(jj,kk, :) = aux1 * aux_mat1(jj,kk, :)
             end do
             end do
@@ -198,6 +203,8 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
       end do
 
    end if
+
+   if (ceed_calc==2) call C_ON_mat_ceed%change_base(aux_mat4(:,:,1), 'inv')
 
    rho_aux = aux_mat4
 
@@ -226,8 +233,9 @@ function inv_mat(A) result(Ainv)
 end function inv_mat
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
 subroutine ceed_finalize()
-   use ceed_data, only: ceed_calc, dip_ceed_op, d2ip_ceed_op,            &
-                        fock_ceed_op, d2dip_ceed, Xmat_ceed
+   use ceed_data, only: ceed_calc, dip_ceed_op, d2ip_ceed_op,                  &
+                        fock_ceed_op, d2dip_ceed, Xmat_ceed, C_ON_mat_ceed,    &
+                        YCinv_ceed
    implicit none
 
    if (ceed_calc==0) return
@@ -236,6 +244,8 @@ subroutine ceed_finalize()
    if (allocated(fock_ceed_op)) deallocate(fock_ceed_op)
    if (allocated(d2dip_ceed)  ) deallocate(d2dip_ceed)
    call Xmat_ceed%destroy()
+   call YCinv_ceed%destroy()
+   call C_ON_mat_ceed%destroy()
 
 end subroutine ceed_finalize
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!

@@ -21,6 +21,8 @@ module ceed_data
    LIODBLE       , allocatable :: d2mu_vec(:,:)
    type(cumat_r)               :: Xmat_ceed      !Basis change operator
    type(cumat_x)               :: YCinv_ceed     !OM basis change operator
+   type(cumat_x)               :: Xtrans_ceed
+   type(cumat_x)               :: C_ON_mat_ceed
    type(operator), allocatable :: dip_ceed_op(:) !Dipole matrix operator for
                                                  !each coordinate.
    type(operator), allocatable :: d2ip_ceed_op(:,:)!Second derivative dipole
