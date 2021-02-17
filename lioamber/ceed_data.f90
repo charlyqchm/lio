@@ -20,6 +20,7 @@ module ceed_data
                                                   !coordinates.
    LIODBLE       , allocatable :: d2mu_vec(:,:)
    type(cumat_r)               :: Xmat_ceed      !Basis change operator
+   type(cumat_r)               :: CR_ON_mat_ceed
    type(cumat_x)               :: YCinv_ceed     !OM basis change operator
    type(cumat_x)               :: Xtrans_ceed
    type(cumat_x)               :: C_ON_mat_ceed

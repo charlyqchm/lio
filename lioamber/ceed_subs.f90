@@ -8,7 +8,8 @@ subroutine ceed_init(M, open_shell, r, d, natom, ntatom, propagator, coef_at)
 ! This subroutine initialize the variables for CEED calculations
    use ceed_data, only: ceed_calc, dip_ceed_op, d2ip_ceed_op,                  &
                         fock_ceed_op, d2dip_ceed, Xmat_ceed, d2mu_vec,         &
-                        Xmat_ceed, YCinv_ceed, Xtrans_ceed, C_ON_mat_ceed
+                        Xmat_ceed, YCinv_ceed, Xtrans_ceed, C_ON_mat_ceed,     &
+                        CR_ON_mat_ceed
    use faint_cpu , only: intfld
 
 
@@ -64,6 +65,14 @@ subroutine ceed_init(M, open_shell, r, d, natom, ntatom, propagator, coef_at)
       call Xtrans_ceed%multiply(aux_Cmat2, aux_Cmat1)
       call C_ON_mat_ceed%init(M, aux_Cmat2)
 
+      do jj=1, M
+      do ii=1, M
+         aux_mat1(ii,jj) = dble(aux_Cmat2(ii,jj))
+      end do
+      end do
+
+      call CR_ON_mat_ceed%init(M,aux_mat1)
+
    end if
 
    do ii=1, 3
@@ -97,7 +106,7 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
 
    use ceed_data, only: ceed_calc, dip_ceed_op, d2ip_ceed_op, d2dip_ceed,     &
                          A_ceed, fock_ceed_op, k_ceed, ceed_td_step, d2mu_vec, &
-                         Xmat_ceed, YCinv_ceed, C_ON_mat_ceed
+                         Xmat_ceed, YCinv_ceed, C_ON_mat_ceed, CR_ON_mat_ceed
    use typedef_operator, only: operator
    implicit none
 
@@ -129,14 +138,14 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
          call rho_bop%Gets_dataC_ON(rho_aux(:,:,2))
       end if
    else if (ceed_calc == 2) then
-      call fock_aop%Gets_data_AO(fock(:,:,1))
+      call fock_aop%Gets_data_ON(fock(:,:,1))
       call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
-      call Xmat_ceed%change_base(fock(:,:,1), 'dir')
+      call CR_ON_mat_ceed%change_base(fock(:,:,1), 'dir')
       call YCinv_ceed%change_base(rho_aux(:,:,1), 'dir')
       if (open_shell) then
-         call fock_bop%Gets_data_AO(fock(:,:,2))
+         call fock_bop%Gets_data_ON(fock(:,:,2))
          call rho_bop%Gets_dataC_AO(rho_aux(:,:,2))
-         call Xmat_ceed%change_base(fock(:,:,2), 'dir')
+         call CR_ON_mat_ceed%change_base(fock(:,:,2), 'dir')
          call YCinv_ceed%change_base(rho_aux(:,:,2), 'dir')
       end if
    end if
