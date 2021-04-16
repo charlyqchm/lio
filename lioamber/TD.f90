@@ -317,6 +317,10 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
             if (istep == chkpntF1b) F1b = fock
          endif
       else
+!charly: sacamos fock atomica que no se saca en ningun lado
+         call spunpack('L', M, Fmat_vec, fock_0(:,:,1))
+         call fock_aop%Sets_data_AO(fock_0(:,:,1))
+
          if(OPEN) then
             call td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew, &
                            factorial, NBCH, dt_magnus, natom, transport_calc,  &
@@ -757,7 +761,7 @@ subroutine td_calc_energy(E, E1, E2, En, Ex, Es, Ehf, MM, Pmat, Fmat, Fmat2, &
    integer :: icount
 
    E1 = 0.0D0; E = 0.0D0
-   if (is_lpfrg) then
+   ! if (is_lpfrg) then
       Ehf = 0.0d0
       call g2g_timer_sum_start("TD - Coulomb")
       call int3lu(E2, Pmat, Fmat2, Fmat, Gmat, Ginv, Hmat, open_shell,&
@@ -769,7 +773,7 @@ subroutine td_calc_energy(E, E1, E2, En, Ex, Es, Ehf, MM, Pmat, Fmat, Fmat2, &
       call g2g_timer_sum_start("TD - Exact Exchange")
       call do_TDexactExchange(Fmat,Fmat2,Ehf,MM,M,open_shell)
       call g2g_timer_sum_pause("TD - Exact Exchange")
-   endif
+   ! endif
 
    ! ELECTRIC FIELD CASE - Perturbation type: Gaussian (default).
    call field_calc(E1, time, Pmat, Fmat2, Fmat, r, d, natom, ntatom, open_shell, &

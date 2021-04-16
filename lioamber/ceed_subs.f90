@@ -129,7 +129,6 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
 
    if (ceed_calc==0) return
 
-
    if(ceed_calc == 1) then
       call fock_aop%Gets_data_ON(fock(:,:,1))
       call rho_aop%Gets_dataC_ON(rho_aux(:,:,1))
@@ -138,14 +137,14 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
          call rho_bop%Gets_dataC_ON(rho_aux(:,:,2))
       end if
    else if (ceed_calc == 2) then
-      call fock_aop%Gets_data_ON(fock(:,:,1))
+      call fock_aop%Gets_data_AO(fock(:,:,1))
       call rho_aop%Gets_dataC_AO(rho_aux(:,:,1))
-      call CR_ON_mat_ceed%change_base(fock(:,:,1), 'dir')
+      call Xmat_ceed%change_base(fock(:,:,1), 'dir')
       call YCinv_ceed%change_base(rho_aux(:,:,1), 'dir')
       if (open_shell) then
-         call fock_bop%Gets_data_ON(fock(:,:,2))
+         call fock_bop%Gets_data_AO(fock(:,:,2))
          call rho_bop%Gets_dataC_AO(rho_aux(:,:,2))
-         call CR_ON_mat_ceed%change_base(fock(:,:,2), 'dir')
+         call Xmat_ceed%change_base(fock(:,:,2), 'dir')
          call YCinv_ceed%change_base(rho_aux(:,:,2), 'dir')
       end if
    end if
@@ -169,24 +168,14 @@ subroutine ceed_fock_calculation(fock_aop, rho_aop, M, t_step, dim3,           &
             if(ceed_calc==2) d2mu_vec(jj,ss) = d2mu_vec(jj,ss) - aux1
          end do
          end do
-!###############################################################################
-!testeando dipolo
-         ! aux2 = 0.0d0
-         !
-         ! if (ii==1) then
-         !    call dip_ceed_op(ii)%Gets_data_ON(aux_mat5(:,:,ss))
-         !    do jj=1, M
-         !    do kk=1, M
-         !       aux2 = aux2 + dble(rho_aux(jj,kk,ss) * aux_mat5(kk,jj,ss))
-         !    end do
-         !    end do
-         !    if (ss==1) write(777,*) aux2
-         !    if (ss==2) write(888,*) aux2
-         ! end if
-
-!###############################################################################
 
       end do
+         ! if (ii==1)then
+         !    do jj=1, M
+         !       write(777,*) jj, d2mu_vec(jj,1)
+         !    end do
+         ! end if
+
          if (ceed_calc==1) then
             aux_mat1(:,:,1) = d2dip_ceed(ii,1) * aux_mat1(:,:,1)
             if (open_shell) aux_mat1(:,:,2) = d2dip_ceed(ii,2) * aux_mat1(:,:,2)
