@@ -42,7 +42,8 @@ module tbdft_data
    integer      :: n_biasTB
    integer      :: n_atperbias
    integer      :: TB_q_tot   = 10
-   LIODBLE :: alfaTB = 0.0d0
+   LIODBLE :: alfaTB  = 0.0d0
+   LIODBLE :: alfaTB2 = 0.0d0
    LIODBLE :: betaTB
    LIODBLE :: gammaTB
    LIODBLE :: driving_rateTB = 0.00d0

@@ -233,7 +233,7 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
       call rho_aop%check_idempotency_ON(OPEN)
       if (OPEN) call rho_bop%check_idempotency_ON(OPEN)
    endif
-   
+
    ! Precalculate three-index (two in MO basis, one in density basis) matrix
    ! used in density fitting /Coulomb F element calculation here (t_i in Dunlap)
    call int2(Gmat_vec, Ginv_vec, r, d, ntatom)
@@ -295,10 +295,10 @@ subroutine TD(fock_aop, rho_aop, fock_bop, rho_bop)
 
       if (is_lpfrg) then
          call td_bc_fock(M_f, M, Fmat_vec, fock_aop, Xmat, istep, &
-                         t/0.024190D0)
+                         t/0.024190D0, 1)
          if (OPEN) then
             call td_bc_fock(M_f, M, Fmat_vec2, fock_bop, Xmat, istep, &
-                            t/0.024190D0)
+                            t/0.024190D0, 2)
             call td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, &
                            rhonew, istep, td_eu_step, Im, dt_lpfrg,            &
                            transport_calc, natom, Nuc, Iz, overlap, sqsm, Ymat,&
@@ -830,13 +830,13 @@ subroutine td_population(M, natom, rho, Smat_init, Nuc, Iz, open_shell, &
    if (.not. (mod(nstep, do_pop) == 0)) return
    if ((.not. (mod(nstep, do_pop*10) == 0)) .and. (propagator > 1) &
        .and. (is_lpfrg)) return
-       
+
    allocate(true_iz(size(Iz,1)))
    true_iz = Iz
-   if (ecpmode) true_iz = IzECP      
+   if (ecpmode) true_iz = IzECP
 
    allocate(real_rho(M,M))
-   if (open_shell) then  
+   if (open_shell) then
       allocate(real_rho_b(M,M))
 
       do icount = 1, M
@@ -868,11 +868,11 @@ subroutine td_orbital_population(rho_alf, rho_bet, open_shell, nstep, &
    integer       , intent(in)    :: nstep, propagator, do_pop, basis_m
    logical       , intent(in)    :: open_shell, is_lpfrg
    type(operator), intent(inout) :: rho_alf, rho_bet
-  
+
    TDCOMPLEX , allocatable :: tmp_mat(:,:)
    LIODBLE   , allocatable :: eivec(:,:), eival(:), eivec2(:,:), eival2(:)
 
- 
+
    if (do_pop == 0) return
    if (.not. (mod(nstep, do_pop) == 0)) return
    if ((.not. (mod(nstep, do_pop*10) == 0)) .and. (propagator > 1) &
@@ -902,10 +902,10 @@ subroutine td_orbital_population(rho_alf, rho_bet, open_shell, nstep, &
 
    deallocate(eival, eivec, tmp_mat)
    if (open_shell) deallocate(eival2, eivec2)
-   
+
 end subroutine td_orbital_population
 
-subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time)
+subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time, spin_id)
    use tbdft_data      , only: tbdft_calc, MTB
    use tbdft_subs      , only: chimeraTBDFT_evol
    use fockbias_subs   , only: fockbias_apply
@@ -913,7 +913,7 @@ subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time)
    use typedef_cumat   , only: cumat_r
 
    implicit none
-   integer       , intent(in)    :: M, M_f, istep
+   integer       , intent(in)    :: M, M_f, istep, spin_id
    LIODBLE  , intent(in)    :: time
    type(cumat_r) , intent(in)    :: Xmat
    LIODBLE  , intent(inout) :: Fmat(:)
@@ -927,7 +927,7 @@ subroutine td_bc_fock(M_f, M, Fmat, fock_op, Xmat, istep, time)
    call spunpack('L', M, Fmat, fock_0)
 
    if (tbdft_calc /= 0) then
-      call chimeraTBDFT_evol(M, fock_0, fock, istep)
+      call chimeraTBDFT_evol(M, fock_0, fock, istep, spin_id)
    else
       fock = fock_0
    endif
@@ -1057,7 +1057,7 @@ subroutine td_verlet(M, M_f, dim3, OPEN, fock_aop, rhold, rho_aop, rhonew, &
    endif
 
    deallocate(rho, rho_aux)
-   
+
 end subroutine td_verlet
 
 subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
@@ -1110,10 +1110,10 @@ subroutine td_magnus(M, dim3, OPEN, fock_aop, F1a, F1b, rho_aop, rhonew,       &
 ! predictor.
    if (tbdft_calc /= 0) then
       call chimeraTBDFT_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,1), &
-                             fock_aux(:,:,1), istep)
+                             fock_aux(:,:,1), istep, 1)
 
       if (OPEN) call chimeraTBDFT_evol(M,fock(MTB+1:MTB+M,MTB+1:MTB+M,2), &
-                                       fock_aux(:,:,2), istep)
+                                       fock_aux(:,:,2), istep, 2)
 
       ! TBDFT: rhold in AO is store for charge calculations of TBDFT
       if (tbdft_calc == 1) then

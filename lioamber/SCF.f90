@@ -479,10 +479,10 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
       else
          ! TBDFT: We extract rho and fock before convergence acceleration
          ! routines. Then, Fock and Rho for TBDFT are builded.
-         call build_chimera_TBDFT (M, fock_a0, fock_a)
+         call build_chimera_TBDFT (M, fock_a0, fock_a, 1)
          call construct_rhoTBDFT(M, rho_a, rho_a0 ,rhoa_tbdft, niter,OPEN)
          if (OPEN) then
-            call build_chimera_TBDFT(M, fock_b0, fock_b)
+            call build_chimera_TBDFT(M, fock_b0, fock_b, 2)
             call construct_rhoTBDFT(M, rho_b, rho_b0 ,rhob_tbdft,niter, OPEN)
          end if
       endif

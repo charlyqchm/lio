@@ -259,19 +259,23 @@ subroutine construct_rhoTBDFT(M, rho, rho_0 ,rho_TBDFT, niter, open_shell)
 end subroutine construct_rhoTBDFT
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
-subroutine build_chimera_TBDFT (M_in, fock_in, fock_TBDFT)
+subroutine build_chimera_TBDFT (M_in, fock_in, fock_TBDFT, spin_id)
    ! This subroutine adds the TB elements to the Hamiltonian.
-   use tbdft_data, only: MTBDFT, MTB, Iend_TB, end_bTB, alfaTB, betaTB,        &
-                         gammaTB, gammaW, n_biasTB, n_atperbias,n_atTB,        &
-                         VbiasTB, tbdft_calc
+   use tbdft_data, only: MTBDFT, MTB, Iend_TB, end_bTB, alfaTB, alfaTB2,       &
+                         betaTB, gammaTB, gammaW, n_biasTB, n_atperbias,       &
+                         n_atTB, VbiasTB, tbdft_calc
 
    integer     , intent(in)  :: M_in
+   integer     , intent(in)  :: spin_id
    LIODBLE, intent(in)  :: fock_in (M_in, M_in)
    LIODBLE, intent(out) :: fock_TBDFT (MTBDFT, MTBDFT)
-   LIODBLE :: V_aux
+   LIODBLE :: V_aux, fermi_level
    integer      :: ii, jj, kk, link
 
    fock_TBDFT(:,:) = 0.0D0
+
+   if (spin_id == 1) fermi_level = alfaTB
+   if (spin_id == 2) fermi_level = alfaTB2
 
    V_aux = 1.0D0
    if (tbdft_calc == 1) V_aux = 0.0d0
@@ -287,7 +291,7 @@ subroutine build_chimera_TBDFT (M_in, fock_in, fock_TBDFT)
    do ii = 1, n_biasTB
    do jj = 1, n_atTB
       kk =jj + ((ii-1) * (n_atTB))
-      fock_TBDFT(kk,kk) = alfaTB + V_aux * VbiasTB(ii)
+      fock_TBDFT(kk,kk) = fermi_level + V_aux * VbiasTB(ii)
       if (jj < n_atTB) then
          fock_TBDFT(kk,kk+1) = betaTB
          fock_TBDFT(kk+1,kk) = betaTB
@@ -322,20 +326,23 @@ subroutine extract_rhoDFT (M_in, rho_in, rho_out)
 end subroutine extract_rhoDFT
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
-subroutine chimeraTBDFT_evol(M_in, fock_in, fock_TBDFT, istep)
+subroutine chimeraTBDFT_evol(M_in, fock_in, fock_TBDFT, istep, spin_id)
    ! This subroutine modify and add the TB section of the Hamiltonian during TD.
 
-   use tbdft_data, only: MTBDFT, MTB, Iend_TB, end_bTB, alfaTB, betaTB,        &
-                         gammaTB, start_tdtb, end_tdtb, gammaW,n_atTB,n_biasTB,&
-                         n_atperbias, VbiasTB, tbdft_calc
+   use tbdft_data, only: MTBDFT, MTB, Iend_TB, end_bTB, alfaTB, alfaTB2,       &
+                         betaTB, gammaTB, start_tdtb, end_tdtb, gammaW,        &
+                         n_atTB,n_biasTB, n_atperbias, VbiasTB, tbdft_calc
 
    integer     , intent(in)  :: M_in
-   integer     , intent(in)  :: istep
+   integer     , intent(in)  :: istep, spin_id
    LIODBLE, intent(in)  :: fock_in(M_in, M_in)
    LIODBLE, intent(out) :: fock_TBDFT(MTBDFT, MTBDFT) ! Temporary dimensions
    LIODBLE :: pi = 4.0D0 * atan(1.0D0)
-   LIODBLE :: lambda, t_step, f_t
+   LIODBLE :: lambda, t_step, f_t, fermi_level
    integer      :: ii,jj,kk, link
+
+   if (spin_id == 1) fermi_level = alfaTB
+   if (spin_id == 2) fermi_level = alfaTB2
 
    lambda = 1.0d0 / real(end_tdtb - start_tdtb)
    f_t = 1.0D0
@@ -362,7 +369,7 @@ subroutine chimeraTBDFT_evol(M_in, fock_in, fock_TBDFT, istep)
    do ii = 1, n_biasTB
    do jj = 1, n_atTB
       kk = jj + ((ii -1) * (n_atTB))
-      fock_TBDFT(kk,kk) = alfaTB + f_t * VbiasTB(ii)
+      fock_TBDFT(kk,kk) = fermi_level + f_t * VbiasTB(ii)
       if (jj < n_atTB) then
          fock_TBDFT(kk,kk+1) = betaTB
          fock_TBDFT(kk+1,kk) = betaTB
@@ -540,7 +547,7 @@ subroutine tbdft_td_output(M_in, thrddim, rho_aux, overlap, istep, Iz, natom, &
          call mulliken(rhoscratch(MTB+1:MTB+M_in,MTB+1:MTB+M_in,1), &
                        rhoscratch(MTB+1:MTB+M_in,MTB+1:MTB+M_in,2), &
                        overlap, Nuc, Iz, qe, qs)
-         
+
          chargeM_TB_a = 0.0d0
          do ii = 1, natom
             chargeM_TB_a = chargeM_TB_a + qs(ii)
@@ -675,7 +682,7 @@ subroutine tbdft_calibration(E, fock_aop, rho_aop, fock_bop, rho_bop)
    ! This subroutine calculate iteratively the fermi energy in TB electrodes,
    ! necessary to concentrate a charge equal to TB_charge_ref in the DFT part.
 
-   use garcha_mod      , only: Smat, RealRho, Iz, natom, Pmat_vec
+   use garcha_mod      , only: Smat, Iz, natom, Pmat_vec
    use basis_data      , only: M, Nuc
    use SCF_aux         , only: fix_densmat
    use tbdft_data      , only: alfaTB, TB_q_tot, TB_charge_ref, TB_q_told
@@ -690,6 +697,7 @@ subroutine tbdft_calibration(E, fock_aop, rho_aop, fock_bop, rho_bop)
    LIODBLE :: Ef_old, Ef_new
    LIODBLE :: q(natom)
    LIODBLE :: escale_f
+   LIODBLE :: rho_aux(M,M)
    integer :: niter, ii
    logical :: converged=.false.
 
@@ -701,9 +709,6 @@ subroutine tbdft_calibration(E, fock_aop, rho_aop, fock_bop, rho_bop)
 
    ! Initializations.
    Q_old = 0.0d0
-   do ii=1,natom
-      Q_old = Q_old + q(ii)
-   enddo
    Ef_old = alfaTB
 
    do while (.not.converged.and.niter<=TB_q_tot)
@@ -712,15 +717,17 @@ subroutine tbdft_calibration(E, fock_aop, rho_aop, fock_bop, rho_bop)
       Ef_new = alfaTB
 
       call SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
-      call spunpack('L', M, Pmat_vec(1), RealRho)
-      call fix_densmat(RealRho)
+      call spunpack('L', M, Pmat_vec, rho_aux)
+      call fix_densmat(rho_aux)
 
-      call mulliken(RealRho, Smat, Nuc, Iz, q)
+      call mulliken(rho_aux, Smat, Nuc, Iz, q)
 
       Q_new = 0.0d0
       do ii=1,natom
          Q_new = Q_new + q(ii)
       enddo
+
+      if (niter == 1) Q_old = Q_new
 
       if ((Q_new-TB_charge_ref>0.0d0.and.Q_old-TB_charge_ref<0.0d0) .or. &
           (Q_new-TB_charge_ref<0.0d0.and.Q_old-TB_charge_ref>0.0d0)) then

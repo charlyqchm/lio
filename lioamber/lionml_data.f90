@@ -20,8 +20,8 @@ module lionml_data
    use cubegen_data      , only: cubegen_only, cube_res, cube_dens, cube_orb,  &
                                  cube_sel, cube_orb_file, cube_dens_file,      &
                                  cube_elec, cube_elec_file, cube_sqrt_orb
-   use tbdft_data        , only: tbdft_calc, MTB, alfaTB, betaTB, gammaTB,     &
-                                 start_tdtb, end_tdtb,n_biasTB,                &
+   use tbdft_data        , only: tbdft_calc, MTB, alfaTB, alfaTB2,betaTB,      &
+                                 gammaTB, start_tdtb, end_tdtb,n_biasTB,       &
                                  driving_rateTB, TB_q_tot, TB_charge_ref,      &
                                  TB_q_told
    use ECP_mod           , only: ecpmode, ecptypes, tipeECP, ZlistECP,         &
@@ -132,9 +132,9 @@ module lionml_data
                   transport_calc, generate_rho0, nbias,                        &
                   save_charge_freq, driving_rate, Pop_Drive,                   &
                   ! Variables for TBDFT
-                  tbdft_calc, MTB, alfaTB, betaTB, gammaTB, start_tdtb,        &
-                  end_tdtb,n_biasTB, driving_rateTB, TB_q_tot, TB_charge_ref,  &
-                  TB_q_told,                                                   &
+                  tbdft_calc, MTB, alfaTB, alfaTB2, betaTB, gammaTB,           &
+                  start_tdtb, end_tdtb,n_biasTB, driving_rateTB, TB_q_tot,     &
+                  TB_charge_ref, TB_q_told,                                    &
                   !Fockbias
                   fockbias_is_active, fockbias_is_shaped, fockbias_readfile,   &
                   fockbias_timegrow , fockbias_timefall , fockbias_timeamp0,   &
@@ -206,8 +206,8 @@ module lionml_data
       logical          :: assign_all_functions, energy_all_iterations,         &
                           remove_zero_weights
       ! Transport and TBDFT
-      LIODBLE          :: alfaTB, betaTB, driving_rate, gammaTB, Vbias_TB,     &
-                          driving_rateTB, TB_charge_ref, TB_q_told
+      LIODBLE          :: alfaTB, alfaTB2, betaTB, driving_rate, gammaTB,      &
+                          Vbias_TB, driving_rateTB, TB_charge_ref, TB_q_told
       logical          :: gate_field, generate_rho0, transport_calc
       integer          :: tbdft_calc, end_bTB, end_tdtb, MTB, pop_drive,       &
                           save_charge_freq, start_tdtb, nbias, n_biasTB,       &
@@ -284,7 +284,7 @@ subroutine get_namelist(lio_in)
    lio_in%timedep          = timedep         ; lio_in%tdrestart  = tdrestart
    lio_in%writedens        = writedens       ; lio_in%field      = field
    lio_in%td_do_pop        = td_do_pop       ; lio_in%td_eu_step = td_eu_step
-   lio_in%td_do_opop       = td_do_opop      ; 
+   lio_in%td_do_opop       = td_do_opop      ;
    lio_in%td_rho_purify    = td_rho_purify   ;
 
    ! ECP
@@ -325,7 +325,7 @@ subroutine get_namelist(lio_in)
    lio_in%end_tdtb         = end_tdtb        ; lio_in%pop_drive = pop_drive
    lio_in%save_charge_freq = save_charge_freq; lio_in%MTB       = MTB
    lio_in%start_tdtb       = start_tdtb      ; lio_in%TB_q_told = TB_q_told
-   lio_in%TB_charge_ref    = TB_charge_ref
+   lio_in%TB_charge_ref    = TB_charge_ref   ; lio_in%alfaTB2   = alfaTB2
    lio_in%driving_rateTB   = driving_rateTB
    ! Ghost atoms
    lio_in%n_ghosts = n_ghosts ; lio_in%ghost_atoms = ghost_atoms
