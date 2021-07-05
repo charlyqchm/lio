@@ -108,7 +108,7 @@ subroutine print_mulliken_os(Pmat, Pmat_b, Smat, atom_of_func, atom_z, real_z)
    call write_population(real_z, q, 0, UIDs%mul, fmulliken)
 
    spinfile = trim(fmulliken) // "_spin"
-   call write_population(real_z, s, 1, UIDs%muls, spinfile)
+   call write_population(real_z, -s, 1, UIDs%muls, spinfile)
 
    deallocate(q, s)
 call g2g_timer_sum_pause('Mulliken')

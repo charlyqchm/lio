@@ -629,6 +629,10 @@ subroutine SCF(E, fock_aop, rho_aop, fock_bop, rho_bop)
 
    call g2g_timer_sum_start('Finalize SCF')
 
+do ii=1, M_f
+   write(777,*) ii, Eorbs(ii)
+end do
+
    ! Checks of convergence
    if (niter >= nMax) then
       call write_final_convergence(.false., nMax, Evieja)

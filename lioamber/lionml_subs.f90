@@ -190,7 +190,7 @@ subroutine lionml_write_dull()
    write(*,8144) inputs%end_tdtb, inputs%n_biasTB, inputs%driving_rateTB
    write(*,8145) inputs%nbias, inputs%TB_q_tot, inputs%TB_charge_ref,          &
                  inputs%TB_q_told
-   write(*,8145) inputs%alfaTB2
+   write(*,8146) inputs%alfaTB2
    write(*,9000) " ! -- Ehrenfest: -- !"
    write(*,8160) inputs%ndyn_steps, inputs%edyn_steps, inputs%nullify_forces
    write(*,8161) inputs%wdip_nfreq, inputs%wdip_fname, inputs%rsti_loads
